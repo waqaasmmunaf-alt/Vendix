@@ -11,7 +11,7 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <div class="sidebar-header"><span class="brand-mark">V</span><h1>Vendix</h1></div>
       <nav id="sidebar-nav"></nav>
       <div class="sidebar-footer">
         <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
@@ -19,17 +19,22 @@
       </div>
     </aside>
     <main class="main-content">
+      <p class="page-eyebrow">PSI Files</p>
       <h2>PSI Report</h2>
       <p class="page-subtitle">
-        Purchase / Sales / Inventory rollup by Model, Storage &amp; Color — built from your Sales File
-        + Activation Check uploads (Sell-in / Sell through / In channel), plus the Shipment Plan
-        upload (WK-1&ndash;3 / Backlog / FGOS).
+        Purchase / Sales / Inventory rollup by LOB &amp; Sub LOB — built directly from your
+        Sales, Purchase, Inventory and Shipment Plan uploads (SKU-level, no IMEI data mixed in).
       </p>
 
       <div class="filter-bar" id="psi-filters">
-        <div class="multiselect" id="ms-p-rtm"><button type="button" class="multiselect-btn">RTM: All</button><div class="multiselect-panel"></div></div>
-        <div class="multiselect" id="ms-p-customer"><button type="button" class="multiselect-btn">Customer: All</button><div class="multiselect-panel"></div></div>
-        <div class="multiselect" id="ms-p-model"><button type="button" class="multiselect-btn">Model: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-p-lob"><button type="button" class="multiselect-btn">LOB: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-p-sublob"><button type="button" class="multiselect-btn">Sub LOB: All</button><div class="multiselect-panel"></div></div>
+        <div class="toggle-group" id="period-toggle">
+          <button class="toggle-btn" data-period="week">This Week</button>
+          <button class="toggle-btn" data-period="month">This Month</button>
+          <button class="toggle-btn active" data-period="quarter">This Quarter</button>
+          <button class="toggle-btn" data-period="all">All Time</button>
+        </div>
         <button class="btn-secondary" id="clear-filters-btn">Clear Filters</button>
         <button class="btn-primary" id="export-psi-btn">Download PSI File (.xlsx)</button>
       </div>

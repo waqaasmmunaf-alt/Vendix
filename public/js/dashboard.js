@@ -136,11 +136,11 @@
 
     function cellColor(rate) {
       if (rate === undefined) return '#eef0f5';
-      // Navy (low) -> Gold (high) — matches the dashboard's classic palette instead of a generic red/green scale
+      // Light blue (low) -> deep blue (high) — single-hue sequential ramp
       const t = rate / 100;
-      const r = Math.round(11 + t * (201 - 11));
-      const g = Math.round(30 + t * (162 - 30));
-      const b = Math.round(61 + t * (39 - 61));
+      const r = Math.round(205 + t * (24 - 205));
+      const g = Math.round(226 + t * (79 - 226));
+      const b = Math.round(251 + t * (149 - 251));
       return `rgb(${r},${g},${b})`;
     }
 
@@ -153,7 +153,7 @@
         const cell = cellMap[`${q}|${w}`];
         const rate = cell ? cell.activation_rate : undefined;
         const title = cell ? `${cell.activated}/${cell.total} activated (${rate}%)` : 'No data';
-        const textColor = rate !== undefined && rate > 55 ? '#0B1E3D' : '#fff';
+        const textColor = rate !== undefined && rate > 55 ? '#0d2340' : '#fff';
         html += `<td class="heatmap-cell" style="background:${cellColor(rate)};color:${textColor}" title="${escapeHtml(title)}">${rate !== undefined ? rate + '%' : ''}</td>`;
       });
       html += '</tr>';
@@ -164,7 +164,7 @@
 
   const dataLabelBase = {
     display: true,
-    color: '#0B1E3D',
+    color: '#184f95',
     font: { weight: '700', size: 11 },
     anchor: 'end',
     align: 'top'
@@ -227,7 +227,7 @@
       type: 'bar',
       data: {
         labels: sortedSales.map((t) => `${t.f_qtr} ${t.f_week}`),
-        datasets: [{ label: 'Units Sold', data: sortedSales.map((t) => t.sold), backgroundColor: '#0B1E3D', borderRadius: 4 }]
+        datasets: [{ label: 'Units Sold', data: sortedSales.map((t) => t.sold), backgroundColor: '#2a78d6', borderRadius: 4 }]
       },
       options: { responsive: true, plugins: { legend: { display: false }, datalabels: dataLabelBase } }
     });
@@ -239,9 +239,9 @@
       type: 'bar',
       data: {
         labels: sortedActivation.map((t) => `${t.f_qtr} ${t.f_week}`),
-        datasets: [{ label: 'Units Activated', data: sortedActivation.map((t) => t.activated), backgroundColor: '#C9A227', borderRadius: 4 }]
+        datasets: [{ label: 'Units Activated', data: sortedActivation.map((t) => t.activated), backgroundColor: '#1baf7a', borderRadius: 4 }]
       },
-      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, color: '#0B1E3D' } } }
+      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, color: '#0c8a5f' } } }
     });
 
     // --- Model mix (bar, with data labels) ---
@@ -251,8 +251,8 @@
       data: {
         labels: modelMix.map((m) => m.model),
         datasets: [
-          { label: 'In Channel', data: modelMix.map((m) => m.in_channel), backgroundColor: '#0B1E3D', borderRadius: 4 },
-          { label: 'Activated', data: modelMix.map((m) => m.activated), backgroundColor: '#C9A227', borderRadius: 4 }
+          { label: 'In Channel', data: modelMix.map((m) => m.in_channel), backgroundColor: '#2a78d6', borderRadius: 4 },
+          { label: 'Activated', data: modelMix.map((m) => m.activated), backgroundColor: '#1baf7a', borderRadius: 4 }
         ]
       },
       options: { responsive: true, plugins: { legend: { position: 'bottom' }, datalabels: dataLabelBase } }
@@ -265,8 +265,8 @@
       data: {
         labels: byRtmCategory.map((r) => r.rtm_category),
         datasets: [
-          { label: 'In Channel', data: byRtmCategory.map((r) => r.in_channel), backgroundColor: '#0B1E3D', borderRadius: 4 },
-          { label: 'Activated', data: byRtmCategory.map((r) => r.activated), backgroundColor: '#C9A227', borderRadius: 4 }
+          { label: 'In Channel', data: byRtmCategory.map((r) => r.in_channel), backgroundColor: '#2a78d6', borderRadius: 4 },
+          { label: 'Activated', data: byRtmCategory.map((r) => r.activated), backgroundColor: '#1baf7a', borderRadius: 4 }
         ]
       },
       options: { responsive: true, plugins: { legend: { position: 'bottom' }, datalabels: { display: false } } }
@@ -278,7 +278,7 @@
       type: 'bar',
       data: {
         labels: topCustomersPending.map((c) => c.customer_name),
-        datasets: [{ label: 'Pending', data: topCustomersPending.map((c) => c.pending), backgroundColor: '#0B1E3D', borderRadius: 4 }]
+        datasets: [{ label: 'Pending', data: topCustomersPending.map((c) => c.pending), backgroundColor: '#2a78d6', borderRadius: 4 }]
       },
       options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, anchor: 'end', align: 'right' } } }
     });
@@ -296,6 +296,84 @@
     });
   }
 
+  // ---------------------------------------------------------------
+  // PSI Sales Trend — from sales_transactions (SKU-level ledger).
+  // Kept fully independent of the IMEI-based dashboard above: its own
+  // data source, own container, own toggle.
+  // ---------------------------------------------------------------
+  const trendContainer = document.getElementById('psi-trend-content');
+  let trendMetric = 'qty';
+
+  async function loadSalesTrend() {
+    const { data, error } = await supabaseClient.rpc('get_sales_trend', {
+      p_group_by: 'week',
+      p_periods: 16,
+      p_lobs: []
+    });
+
+    if (error) {
+      trendContainer.innerHTML = `<div class="alert-error">${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    if (!data.points.length || data.points.every((p) => p.qty === 0 && p.revenue === 0)) {
+      trendContainer.innerHTML = '<div class="panel pro-panel"><p class="empty-state">No Sales Data uploaded yet — see PSI Files → Upload Sales Data.</p></div>';
+      return;
+    }
+
+    trendContainer.innerHTML = `
+      <div class="panel-grid two-col">
+        <div class="panel pro-panel">
+          <h3>Weekly ${trendMetric === 'qty' ? 'Units Sold' : 'Revenue'}</h3>
+          <canvas id="chart-psi-trend" height="200"></canvas>
+        </div>
+        <div class="panel pro-panel">
+          <h3>By LOB (this window)</h3>
+          <canvas id="chart-psi-lob" height="200"></canvas>
+        </div>
+      </div>
+    `;
+
+    destroyChart('psiTrend');
+    charts.psiTrend = new Chart(document.getElementById('chart-psi-trend'), {
+      type: 'bar',
+      data: {
+        labels: data.points.map((p) => p.label),
+        datasets: [{
+          label: trendMetric === 'qty' ? 'Units Sold' : 'Revenue',
+          data: data.points.map((p) => (trendMetric === 'qty' ? p.qty : p.revenue)),
+          backgroundColor: '#2a78d6',
+          borderRadius: 4
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, color: '#184f95' } } }
+    });
+
+    destroyChart('psiLob');
+    charts.psiLob = new Chart(document.getElementById('chart-psi-lob'), {
+      type: 'bar',
+      data: {
+        labels: data.byLob.map((l) => l.lob),
+        datasets: [{
+          label: trendMetric === 'qty' ? 'Units Sold' : 'Revenue',
+          data: data.byLob.map((l) => (trendMetric === 'qty' ? l.qty : l.revenue)),
+          backgroundColor: '#1baf7a',
+          borderRadius: 4
+        }]
+      },
+      options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, anchor: 'end', align: 'right' } } }
+    });
+  }
+
+  document.getElementById('trend-metric-toggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.toggle-btn');
+    if (!btn) return;
+    document.querySelectorAll('#trend-metric-toggle .toggle-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    trendMetric = btn.dataset.metric;
+    loadSalesTrend();
+  });
+
   document.getElementById('date-mode-toggle').addEventListener('click', (e) => {
     const btn = e.target.closest('.toggle-btn');
     if (!btn) return;
@@ -312,4 +390,5 @@
 
   await populateFilterOptions();
   await load();
+  await loadSalesTrend();
 })();

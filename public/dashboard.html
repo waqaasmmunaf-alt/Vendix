@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Vendix</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -14,7 +12,7 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <div class="sidebar-header"><span class="brand-mark">V</span><h1>Vendix</h1></div>
       <nav id="sidebar-nav"></nav>
       <div class="sidebar-footer">
         <div class="user-info">
@@ -48,6 +46,16 @@
 
       <div id="error-box" class="alert-error" style="display:none;"></div>
       <div id="dashboard-content"><div class="loading">Loading dashboard...</div></div>
+
+      <div class="dash-header" style="margin-top:32px;">
+        <h2><span class="source-pill sell-through">PSI Data</span> Sales Trend</h2>
+        <div class="toggle-group" id="trend-metric-toggle">
+          <button class="toggle-btn active" data-metric="qty">Units</button>
+          <button class="toggle-btn" data-metric="revenue">Revenue</button>
+        </div>
+      </div>
+      <p class="page-subtitle">From your Sales Data uploads (SKU-level ledger) — independent of the IMEI charts above.</p>
+      <div id="psi-trend-content"><div class="loading">Loading sales trend...</div></div>
     </main>
   </div>
 

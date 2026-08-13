@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Upload Sales File — Vendix</title>
+  <title>Upload Sales Data — Vendix</title>
   <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -19,8 +19,14 @@
       </div>
     </aside>
     <main class="main-content">
-      <h2>Upload Sales / Shipment File</h2>
-      <p class="page-subtitle">Upload the unactivated IMEI export from ops software. New units will be added as "unactivated" in the channel.</p>
+      <p class="page-eyebrow">PSI Files</p>
+      <h2><span class="source-pill sell-through">Sell-through</span> Upload Sales Data</h2>
+      <p class="page-subtitle">
+        Your Purchase &amp; Sell workbook — upload the whole file, this page finds the
+        "Sales till&nbsp;…" sheet on its own (works even as the sheet name's date changes
+        every month). It's a full running history back to 2019, so re-uploading a newer
+        export is safe — lines already in the database are skipped automatically.
+      </p>
 
       <form class="upload-card" id="upload-form">
         <input type="file" id="file-input" accept=".xlsx,.xls" />
@@ -36,6 +42,6 @@
   <script src="js/auth.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/excelParser.js"></script>
-  <script src="js/uploadOps.js"></script>
+  <script src="js/uploadSalesLedger.js"></script>
 </body>
 </html>

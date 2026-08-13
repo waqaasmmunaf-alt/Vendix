@@ -9,9 +9,10 @@
   const content = document.getElementById('psi-content');
   const exportBtn = document.getElementById('export-psi-btn');
 
-  let lastReport = null; // last successful get_psi_report() result, kept around for the export button
+  let lastReport = null;
+  let period = 'quarter';
 
-  // --- Multi-select filter widgets (RTM, Customer, Model) — same pattern as dashboard.js / inventory.js ---
+  // --- Multi-select filter widgets (LOB, Sub LOB) ---
   const multiSelects = {};
 
   function setupMultiSelect(containerId, label, items, labelFn, valueFn) {
@@ -29,10 +30,8 @@
 
     function updateLabel() {
       if (selected.size === 0) btn.textContent = `${label}: All`;
-      else if (selected.size === 1) {
-        const item = items.find((it) => String(valueFn(it)) === [...selected][0]);
-        btn.textContent = `${label}: ${item ? labelFn(item) : '1 selected'}`;
-      } else btn.textContent = `${label}: ${selected.size} selected`;
+      else if (selected.size === 1) btn.textContent = `${label}: ${[...selected][0]}`;
+      else btn.textContent = `${label}: ${selected.size} selected`;
     }
 
     panel.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
@@ -64,56 +63,47 @@
   });
 
   async function populateFilterOptions() {
-    const { data, error } = await supabaseClient.rpc('get_dashboard_filter_options');
+    const { data, error } = await supabaseClient.rpc('get_psi_filter_options');
     if (error) { console.error(error); return; }
-    setupMultiSelect('ms-p-rtm', 'RTM', data.rtmCategories, (r) => r.name, (r) => r.id);
-    setupMultiSelect('ms-p-customer', 'Customer', data.customers, (c) => c.name, (c) => c.id);
-    setupMultiSelect('ms-p-model', 'Model', data.models, (m) => m, (m) => m);
+    setupMultiSelect('ms-p-lob', 'LOB', data.lobs, (l) => l, (l) => l);
+    setupMultiSelect('ms-p-sublob', 'Sub LOB', data.subLobs, (l) => l, (l) => l);
   }
 
-  function getFilterArrays() {
-    const toIntArray = (arr) => arr.map((v) => parseInt(v, 10));
+  function getFilterArgs() {
     return {
-      p_rtm_category_ids: multiSelects['ms-p-rtm'] ? toIntArray(multiSelects['ms-p-rtm'].getValues()) : [],
-      p_customer_ids: multiSelects['ms-p-customer'] ? toIntArray(multiSelects['ms-p-customer'].getValues()) : [],
-      p_models: multiSelects['ms-p-model'] ? multiSelects['ms-p-model'].getValues() : []
+      p_lobs: multiSelects['ms-p-lob'] ? multiSelects['ms-p-lob'].getValues() : [],
+      p_sub_lobs: multiSelects['ms-p-sublob'] ? multiSelects['ms-p-sublob'].getValues() : [],
+      p_period: period
     };
   }
 
   // --- Column layout shared by the on-screen table and the Excel export ---
-  // Group headers: label + how many leaf columns it spans (1 = no sub-columns)
-  function buildColumns(trendMonths) {
-    return [
-      { group: 'LOB', span: 1, leaf: ['LOB'] },
-      { group: 'SUB LOB', span: 1, leaf: ['SUB LOB'] },
-      { group: 'Storage', span: 1, leaf: ['Storage'] },
-      { group: 'Color', span: 1, leaf: ['Color'] },
-      { group: 'Sell-in', span: 1, leaf: ['Sell-in'] },
-      { group: 'Sell through', span: 1, leaf: ['Sell through'] },
-      { group: 'Activated', span: 1, leaf: ['Activated'] },
-      { group: 'In channel', span: 1, leaf: ['In channel'] },
-      { group: '6 Month Sell Trend', span: 6, leaf: trendMonths },
-      { group: 'Inventory-in hand', span: 3, leaf: ['SG', 'DXB', 'LE PK'] },
-      { group: 'Shipment plan', span: 3, leaf: ['WK-1', 'WK-2', 'WK-3'] },
-      { group: 'Backlog', span: 1, leaf: ['Backlog'] },
-      { group: 'Total Upcoming', span: 1, leaf: ['Total Upcoming'] },
-      { group: 'FGOS', span: 1, leaf: ['FGOS'] },
-      { group: 'DOS', span: 1, leaf: ['DOS'] },
-      { group: 'WOS', span: 1, leaf: ['WOS'] }
-    ];
-  }
+  const COLUMNS = [
+    { group: 'LOB', span: 1, leaf: ['LOB'] },
+    { group: 'SUB LOB', span: 1, leaf: ['SUB LOB'] },
+    { group: 'Sell-in', span: 2, leaf: ['Qty', 'Value'] },
+    { group: 'Sell through', span: 2, leaf: ['Qty', 'Value'] },
+    { group: 'Inventory-in hand', span: 3, leaf: ['SG', 'DXB', 'LE PK'] },
+    { group: 'Inventory Total', span: 2, leaf: ['Qty', 'Value'] },
+    { group: 'Shipment plan', span: 3, leaf: ['WK-1', 'WK-2', 'WK-3'] },
+    { group: 'Backlog', span: 1, leaf: ['Backlog'] },
+    { group: 'Total Upcoming', span: 1, leaf: ['Total Upcoming'] },
+    { group: 'DOS', span: 1, leaf: ['DOS'] },
+    { group: 'WOS', span: 1, leaf: ['WOS'] }
+  ];
+  const LEAF_COUNT = COLUMNS.reduce((sum, c) => sum + c.span, 0);
 
   function fmt(v) {
     return v === null || v === undefined ? '—' : v;
   }
+  function fmtMoney(v) {
+    return v === null || v === undefined ? '—' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
 
   function renderTable(report) {
-    const trendMonths = (report.rows[0]?.sixMonthTrend || []).map((t) => t.month);
-    const columns = buildColumns(trendMonths.length ? trendMonths : ['', '', '', '', '', '']);
-
     let headRow1 = '';
     let headRow2 = '';
-    columns.forEach((col) => {
+    COLUMNS.forEach((col) => {
       if (col.span === 1) {
         headRow1 += `<th rowspan="2">${escapeHtml(col.group)}</th>`;
       } else {
@@ -122,32 +112,27 @@
       }
     });
 
-    const bodyRows = report.rows.map((r) => {
-      const trendCells = (r.sixMonthTrend || []).map((t) => `<td>${fmt(t.units)}</td>`).join('');
-      return `
+    const bodyRows = report.rows.map((r) => `
         <tr>
           <td>${escapeHtml(r.lob)}</td>
           <td>${escapeHtml(r.subLob) || '—'}</td>
-          <td>${escapeHtml(r.storage) || '—'}</td>
-          <td>${escapeHtml(r.color) || '—'}</td>
-          <td>${fmt(r.sellIn)}</td>
-          <td>${fmt(r.sellThrough)}</td>
-          <td>${fmt(r.activated)}</td>
-          <td>${fmt(r.inChannel)}</td>
-          ${trendCells}
+          <td>${fmt(r.sellInQty)}</td>
+          <td>${fmtMoney(r.sellInValue)}</td>
+          <td>${fmt(r.sellThroughQty)}</td>
+          <td>${fmtMoney(r.sellThroughValue)}</td>
           <td>${fmt(r.invSg)}</td>
           <td>${fmt(r.invDxb)}</td>
           <td>${fmt(r.invLePk)}</td>
-          <td>${fmt(r.planWk1)}</td>
-          <td>${fmt(r.planWk2)}</td>
-          <td>${fmt(r.planWk3)}</td>
+          <td>${fmt(r.invTotalQty)}</td>
+          <td>${fmtMoney(r.invTotalValue)}</td>
+          <td>${fmt(r.shipWk1)}</td>
+          <td>${fmt(r.shipWk2)}</td>
+          <td>${fmt(r.shipWk3)}</td>
           <td>${fmt(r.backlog)}</td>
           <td>${fmt(r.totalUpcoming)}</td>
-          <td>${fmt(r.fgos)}</td>
           <td>${fmt(r.dos)}</td>
           <td>${fmt(r.wos)}</td>
-        </tr>`;
-    }).join('') || `<tr><td colspan="25" class="empty-state">No data for this filter yet — upload a Sales File and/or Shipment Plan first.</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="${LEAF_COUNT}" class="empty-state">No data for this filter yet — upload Sales, Purchase, Inventory and/or Shipment Plan files first.</td></tr>`;
 
     content.innerHTML = `
       <div class="table-wrap">
@@ -160,8 +145,8 @@
         </table>
       </div>
       <p class="page-subtitle" style="margin-top:12px;">
-        Model row shown as LOB / Storage / Color — hover the sidebar link for column definitions.
-        Report generated ${new Date(report.generatedAt).toLocaleString()}.
+        Sell-in / Sell-through totals are for the selected period above. Inventory and Shipment
+        Plan always reflect your latest upload of each. Report generated ${new Date(report.generatedAt).toLocaleString()}.
       </p>
     `;
   }
@@ -169,7 +154,7 @@
   async function load() {
     errorBox.style.display = 'none';
     warnBox.style.display = 'none';
-    const { data, error } = await supabaseClient.rpc('get_psi_report', getFilterArrays());
+    const { data, error } = await supabaseClient.rpc('get_psi_report_v2', getFilterArgs());
 
     if (error) {
       errorBox.textContent = error.message;
@@ -179,9 +164,9 @@
     }
 
     lastReport = data;
-    if (data.otherLocationCount > 0) {
+    if (data.unmatchedShipmentQty > 0) {
       warnBox.style.display = 'block';
-      warnBox.textContent = `${data.otherLocationCount} unactivated unit(s) didn't match the SG / DXB / LE PK location buckets and aren't counted in "Inventory-in hand" — check the location/RTM values on those records if this number looks high.`;
+      warnBox.textContent = `${data.unmatchedShipmentQty} planned shipment unit(s) didn't match any LOB/Sub LOB from your Sales/Purchase/Inventory data, so they aren't reflected in the table below — this usually means the Shipment Plan file's Product Category/Model naming doesn't line up exactly with your other files.`;
     }
     renderTable(data);
   }
@@ -190,39 +175,34 @@
   function exportToExcel() {
     if (!lastReport || !lastReport.rows.length) { alert('Nothing to export yet.'); return; }
 
-    const trendMonths = (lastReport.rows[0]?.sixMonthTrend || []).map((t) => t.month);
-    const columns = buildColumns(trendMonths.length ? trendMonths : ['', '', '', '', '', '']);
-
     const headRow1 = [];
     const headRow2 = [];
     const merges = [];
     let colIdx = 0;
-    columns.forEach((col) => {
+    COLUMNS.forEach((col) => {
       headRow1.push(col.group);
       if (col.span === 1) {
         headRow2.push('');
-        merges.push({ s: { r: 0, c: colIdx }, e: { r: 1, c: colIdx } }); // vertical merge, single column
+        merges.push({ s: { r: 0, c: colIdx }, e: { r: 1, c: colIdx } });
         colIdx += 1;
       } else {
         for (let i = 1; i < col.span; i++) headRow1.push(null);
-        merges.push({ s: { r: 0, c: colIdx }, e: { r: 0, c: colIdx + col.span - 1 } }); // horizontal merge on row 1
+        merges.push({ s: { r: 0, c: colIdx }, e: { r: 0, c: colIdx + col.span - 1 } });
         col.leaf.forEach((l) => headRow2.push(l));
         colIdx += col.span;
       }
     });
 
-    const dataRows = lastReport.rows.map((r) => {
-      const trendVals = (r.sixMonthTrend || []).map((t) => t.units ?? '');
-      return [
-        r.lob || '', r.subLob || '', r.storage || '', r.color || '',
-        r.sellIn ?? 0, r.sellThrough ?? 0, r.activated ?? 0, r.inChannel ?? 0,
-        ...trendVals,
-        r.invSg ?? 0, r.invDxb ?? 0, r.invLePk ?? 0,
-        r.planWk1 ?? 0, r.planWk2 ?? 0, r.planWk3 ?? 0,
-        r.backlog ?? 0, r.totalUpcoming ?? 0, r.fgos ?? 0,
-        r.dos ?? '', r.wos ?? ''
-      ];
-    });
+    const dataRows = lastReport.rows.map((r) => [
+      r.lob || '', r.subLob || '',
+      r.sellInQty ?? 0, r.sellInValue ?? 0,
+      r.sellThroughQty ?? 0, r.sellThroughValue ?? 0,
+      r.invSg ?? 0, r.invDxb ?? 0, r.invLePk ?? 0,
+      r.invTotalQty ?? 0, r.invTotalValue ?? 0,
+      r.shipWk1 ?? 0, r.shipWk2 ?? 0, r.shipWk3 ?? 0,
+      r.backlog ?? 0, r.totalUpcoming ?? 0,
+      r.dos ?? '', r.wos ?? ''
+    ]);
 
     const aoa = [headRow1, headRow2, ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -237,10 +217,19 @@
     exportBtn.disabled = true;
     try {
       exportToExcel();
-      await logActivity('export', 'psi_report', null, { rowCount: lastReport ? lastReport.rows.length : 0 });
+      await logActivity('export', 'psi_report', null, { rowCount: lastReport ? lastReport.rows.length : 0, period });
     } finally {
       exportBtn.disabled = false;
     }
+  });
+
+  document.getElementById('period-toggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.toggle-btn');
+    if (!btn) return;
+    document.querySelectorAll('#period-toggle .toggle-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    period = btn.dataset.period;
+    load();
   });
 
   document.getElementById('clear-filters-btn').addEventListener('click', () => {

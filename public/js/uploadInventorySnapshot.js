@@ -2,7 +2,7 @@
   const session = await requireAuth();
   if (!session) return;
   const profile = await getCurrentProfile();
-  renderLayout('upload-shipment-plan', profile);
+  renderLayout('upload-inventory-snapshot', profile);
 
   if (profile.role === 'viewer') {
     document.querySelector('.main-content').innerHTML = '<div class="alert-error">Viewers cannot upload files.</div>';
@@ -29,27 +29,23 @@
     uploadBtn.textContent = 'Reading file...';
 
     try {
-      const { rows, warnings } = await parseShipmentPlanFileV2(file);
+      const { rows, warnings } = await parseInventorySnapshotFile(file);
       if (rows.length === 0) {
-        throw new Error('No valid rows found — make sure the file has the "Shipment plan" sheet with Product Category / Model / Apple Part# columns.');
+        throw new Error('No inventory lines found. Make sure the file has the consolidated warehouse-value sheet (Part No / LOB / SG Qty / Total Qty columns).');
       }
-
-      uploadBtn.textContent = `Uploading ${rows.length} SKU rows...`;
 
       const { data: batchId, error: createErr } = await supabaseClient.rpc('create_upload_batch', {
         p_file_name: file.name,
-        p_upload_type: 'shipment_plan'
+        p_upload_type: 'inventory_snapshot'
       });
       if (createErr) throw new Error(createErr.message);
 
-      // Rows carry a nested weeks array — this RPC does a per-item + per-week
-      // insert loop server-side, so keep chunks modest.
-      const CHUNK = 500;
+      const CHUNK = 3000;
       let rowsAdded = 0;
       for (let i = 0; i < rows.length; i += CHUNK) {
         const chunkRows = rows.slice(i, i + CHUNK);
         uploadBtn.textContent = `Uploading ${Math.min(i + CHUNK, rows.length)} / ${rows.length}...`;
-        const { data: chunkAdded, error: chunkErr } = await supabaseClient.rpc('process_shipment_plan_chunk', {
+        const { data: chunkAdded, error: chunkErr } = await supabaseClient.rpc('process_inventory_snapshot_chunk', {
           p_batch_id: batchId,
           p_rows: chunkRows
         });
@@ -57,7 +53,7 @@
         rowsAdded += chunkAdded || 0;
       }
 
-      const { data: summary, error: finalErr } = await supabaseClient.rpc('finalize_shipment_plan_batch', {
+      const { data: summary, error: finalErr } = await supabaseClient.rpc('finalize_inventory_snapshot_batch', {
         p_batch_id: batchId,
         p_total_rows: rows.length
       });
@@ -67,10 +63,9 @@
       resultBox.innerHTML = `
         <h3>Upload Complete</h3>
         <ul>
-          <li>Total SKU rows read: <strong>${summary.totalRows}</strong></li>
-          <li>Plan lines added: <strong>${summary.rowsAdded}</strong></li>
+          <li>Part / location lines added: <strong>${rowsAdded}</strong></li>
         </ul>
-        <p>Head to the <a href="psi-report.html">PSI Report</a> to see it rolled in.</p>
+        <p>This is now the active inventory snapshot. Head to the <a href="psi-report.html">PSI Report</a> to see it.</p>
         ${warnings.length ? `<div class="alert-warning">${warnings.map((w) => `<div>${escapeHtml(w)}</div>`).join('')}</div>` : ''}
       `;
     } catch (err) {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Upload Sales File — Vendix</title>
+  <title>Upload Inventory — Vendix</title>
   <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -19,8 +19,15 @@
       </div>
     </aside>
     <main class="main-content">
-      <h2>Upload Sales / Shipment File</h2>
-      <p class="page-subtitle">Upload the unactivated IMEI export from ops software. New units will be added as "unactivated" in the channel.</p>
+      <p class="page-eyebrow">PSI Files</p>
+      <h2><span class="source-pill inventory">Inventory</span> Upload Inventory</h2>
+      <p class="page-subtitle">
+        Your Apple Distribution Inventory Value workbook — upload the whole file, this page
+        finds the consolidated warehouse-value sheet on its own. Each upload is a full
+        point-in-time snapshot: the PSI Report and Dashboard always use the
+        <strong>most recently uploaded</strong> inventory file, not a sum of every upload —
+        so just upload your latest export whenever stock changes.
+      </p>
 
       <form class="upload-card" id="upload-form">
         <input type="file" id="file-input" accept=".xlsx,.xls" />
@@ -36,6 +43,6 @@
   <script src="js/auth.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/excelParser.js"></script>
-  <script src="js/uploadOps.js"></script>
+  <script src="js/uploadInventorySnapshot.js"></script>
 </body>
 </html>
