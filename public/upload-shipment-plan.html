@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload Shipment Plan — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>Upload Shipment Plan</h2>
+      <p class="page-subtitle">
+        A planning-level file — one row per Model / Storage / Color / Location / Week (not per-IMEI).
+        This feeds the Shipment Plan (WK-1 / WK-2 / WK-3), Backlog and FGOS columns of the PSI Report.
+        Expected columns (any order, header names are matched loosely): <strong>LOB, Sub LOB, Model,
+        Storage, Color, Customer, Location, Week, Planned Qty, FGOS, Backlog</strong>.
+      </p>
+
+      <form class="upload-card" id="upload-form">
+        <input type="file" id="file-input" accept=".xlsx,.xls" />
+        <button type="submit" class="btn-primary" id="upload-btn" disabled>Upload File</button>
+      </form>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="result-box" style="display:none;" class="result-card"></div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/excelParser.js"></script>
+  <script src="js/uploadShipmentPlan.js"></script>
+</body>
+</html>

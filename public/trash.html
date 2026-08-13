@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trash — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>Trash</h2>
+      <p class="page-subtitle">Soft-deleted records. Restore any record accidentally removed.</p>
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>IMEI 1</th><th>Status</th><th>Deleted At</th><th></th></tr></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/trash.js"></script>
+</body>
+</html>

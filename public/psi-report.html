@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PSI Report — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>PSI Report</h2>
+      <p class="page-subtitle">
+        Purchase / Sales / Inventory rollup by Model, Storage &amp; Color — built from your Sales File
+        + Activation Check uploads (Sell-in / Sell through / In channel), plus the Shipment Plan
+        upload (WK-1&ndash;3 / Backlog / FGOS).
+      </p>
+
+      <div class="filter-bar" id="psi-filters">
+        <div class="multiselect" id="ms-p-rtm"><button type="button" class="multiselect-btn">RTM: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-p-customer"><button type="button" class="multiselect-btn">Customer: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-p-model"><button type="button" class="multiselect-btn">Model: All</button><div class="multiselect-panel"></div></div>
+        <button class="btn-secondary" id="clear-filters-btn">Clear Filters</button>
+        <button class="btn-primary" id="export-psi-btn">Download PSI File (.xlsx)</button>
+      </div>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="warn-box" class="alert-warning" style="display:none;"></div>
+      <div id="psi-content"><div class="loading">Loading PSI report...</div></div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/psiReport.js"></script>
+</body>
+</html>

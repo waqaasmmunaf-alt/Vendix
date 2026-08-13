@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Vendix</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="user-name"></strong>
+          <span class="role-badge" id="user-role"></span>
+        </div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+
+      <div class="welcome-banner">
+        <div class="welcome-banner-text">
+          <span class="welcome-eyebrow" id="welcome-date"></span>
+          <h1 id="welcome-heading">Welcome</h1>
+        </div>
+        <div class="toggle-group" id="date-mode-toggle">
+          <button class="toggle-btn active" data-mode="sales">By sales date</button>
+          <button class="toggle-btn" data-mode="activation">By activation date</button>
+        </div>
+      </div>
+
+      <div class="filter-bar" id="dash-filters">
+        <div class="multiselect" id="ms-d-rtm"><button type="button" class="multiselect-btn">RTM: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-d-customer"><button type="button" class="multiselect-btn">Customer: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-d-model"><button type="button" class="multiselect-btn">Model: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-d-qtr"><button type="button" class="multiselect-btn">Qtr: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-d-week"><button type="button" class="multiselect-btn">Week: All</button><div class="multiselect-panel"></div></div>
+        <button class="btn-secondary" id="clear-filters-btn">Clear Filters</button>
+      </div>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="dashboard-content"><div class="loading">Loading dashboard...</div></div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

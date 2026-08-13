@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>Inventory</h2>
+
+      <div class="filter-bar">
+        <select id="filter-status">
+          <option value="">All Statuses</option>
+          <option value="unactivated">Unactivated (In Channel)</option>
+          <option value="activated">Activated</option>
+          <option value="not_included">Not Included on Activation Check</option>
+        </select>
+        <input id="filter-search" placeholder="Search IMEI / Serial" />
+        <select id="filter-duplicate">
+          <option value="">All Records</option>
+          <option value="true">Duplicates Only</option>
+        </select>
+        <div class="multiselect" id="ms-rtm"><button type="button" class="multiselect-btn">RTM: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-customer"><button type="button" class="multiselect-btn">Customer: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-model"><button type="button" class="multiselect-btn">Model: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-qtr"><button type="button" class="multiselect-btn">Sales Qtr: All</button><div class="multiselect-panel"></div></div>
+        <div class="multiselect" id="ms-week"><button type="button" class="multiselect-btn">Sales Week: All</button><div class="multiselect-panel"></div></div>
+        <label class="filter-date-label">From <input type="date" id="filter-date-from" /></label>
+        <label class="filter-date-label">To <input type="date" id="filter-date-to" /></label>
+        <button class="btn-secondary" id="clear-filters-btn">Clear Filters</button>
+        <button class="btn-secondary" id="export-raw-btn">Export to Excel</button>
+      </div>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>RTM</th><th>Serial No</th><th>IMEI 1</th><th>IMEI 2</th><th>Model</th><th>Description</th>
+              <th>Part No</th><th>Qty</th><th>PFI #</th><th>Customer Name</th>
+              <th>Sales Date</th><th>Sales Qtr</th><th>Sales Week</th>
+              <th>Activation Status</th><th>Activation Date</th><th>Act Qtr</th><th>Act Week</th><th>Remark</th>
+              <th>Duplicate</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button id="prev-btn">Previous</button>
+        <span id="page-info"></span>
+        <button id="next-btn">Next</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/inventory.js"></script>
+</body>
+</html>

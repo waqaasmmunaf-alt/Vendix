@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="login-page">
+    <form class="login-card" id="login-form">
+      <h1>Vendix</h1>
+      <p class="subtitle">Log in to continue</p>
+      <div class="alert-error" id="error-box" style="display:none;"></div>
+      <label>Email</label>
+      <input type="email" id="email" required autofocus />
+      <label>Password</label>
+      <input type="password" id="password" required />
+      <button type="submit" class="btn-primary" id="login-btn">Log In</button>
+    </form>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) window.location.href = 'dashboard.html';
+    })();
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const errorBox = document.getElementById('error-box');
+      errorBox.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        errorBox.textContent = error.message;
+        errorBox.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Log In';
+        return;
+      }
+
+      window.location.href = 'dashboard.html';
+    });
+  </script>
+</body>
+</html>

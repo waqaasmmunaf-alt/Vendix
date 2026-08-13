@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Uploads — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>Manage Uploads</h2>
+      <p class="page-subtitle">
+        Permanent deletion — this is different from Trash. Deleting an ops/combined-report
+        upload here permanently erases those records (not recoverable). Deleting an
+        activation-check upload reverts those records back to unactivated instead of
+        deleting them, since the underlying sale belongs to a different upload.
+      </p>
+
+      <div class="danger-zone">
+        <div>
+          <strong>Delete ALL uploaded data</strong>
+          <p>Permanently wipes every IMEI record and upload batch. Customers, RTM tags, and reference data are kept.</p>
+        </div>
+        <button id="delete-all-btn" class="btn-danger">Delete All Uploads</button>
+      </div>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="success-box" class="alert-success" style="display:none;"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>File</th><th>Type</th><th>Uploaded By</th><th>Uploaded At</th><th>Rows</th><th>New</th><th>Duplicates</th><th></th></tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/manageUploads.js"></script>
+</body>
+</html>
