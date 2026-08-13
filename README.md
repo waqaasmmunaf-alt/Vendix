@@ -1,10 +1,18 @@
 # Vendix (Supabase + Vercel edition)
 
-Same feature set as Channel Pulse — IMEI-level channel/activation tracking,
-Dashboard, uploads, PSI Report — rebranded as **Vendix**, running on its own
+Same IMEI-level channel/activation tracking as Channel Pulse — Dashboard,
+uploads, Inventory, IMEI Search — rebranded as **Vendix**, running on its own
 independent Supabase project (own data, own users, nothing shared with the
 original app). No server to manage, no Docker, no VPS: Supabase hosts the
 database + login, Vercel hosts the website.
+
+The **PSI Files** section is built specifically around your real Purchase /
+Sales / Inventory / Shipment-Plan workbooks (SKU-level, not per-IMEI) — see
+its own section below. It's a separate data pipeline from the IMEI tracking
+above and doesn't touch or depend on it.
+
+The UI has also been redesigned — a light, blue "premium" console theme
+(icon sidebar, card-based dashboard) instead of the earlier navy/gold look.
 
 ## ⚠️ Please read before you deploy
 
@@ -27,15 +35,23 @@ project's exact behavior in every edge case, since I was reconstructing
 it rather than reading it. Once you have real data in, compare a few
 Dashboard numbers against Channel Pulse and tell me if anything's off.
 
+The PSI Files parsers were additionally run directly against the 3 real
+workbooks you shared (Purchase & Sell, Apple Distribution Inventory Value,
+Shipment Plan Cash Flow) — sheet auto-detection, column mapping, date
+parsing, and the location/week breakdown were all verified against your
+actual data before this was packaged, not just against made-up samples.
+
 ## What's inside
 
 ```
 vendix/
 ├── supabase/
+│   ├── reset_all.sql                   # only if you need to start over — see below
 │   ├── schema.sql                      # run 1st — base tables, security rules
 │   ├── schema_part2_live_features.sql  # run 2nd — chunked uploads, Dashboard,
 │   │                                   #   RTM access restriction, delete tools
-│   ├── migration_psi.sql               # run 3rd — PSI Files feature
+│   ├── migration_psi.sql               # run 3rd — PSI Files feature (Sales/Purchase/
+│   │                                   #   Inventory/Shipment-Plan ledgers + PSI Report)
 │   └── seed_apple_calendar.sql         # run 4th — Apple fiscal calendar data
 ├── public/                             # the actual website (deploy this folder to Vercel)
 │   ├── login.html, dashboard.html, upload-ops.html, ... (one file per page)
@@ -58,6 +74,13 @@ vendix/
    3. `supabase/migration_psi.sql`
    4. `supabase/seed_apple_calendar.sql` (loads ~2,700 Apple fiscal
       calendar dates — takes a few seconds)
+
+   **Getting `relation "profiles" already exists` (or similar) on step 1?**
+   That means `schema.sql` already ran on this project before — pasting it
+   again tries to recreate tables that are already there. Run
+   `supabase/reset_all.sql` first (New Query → paste → Run — it wipes just
+   this app's tables/functions, not your logins), then start again from
+   step 1. Tested end-to-end: reset → all four files in order works cleanly.
 6. Go to **Settings → API**. You'll need two values for Part 2:
    - **Project URL**
    - **anon public** key (NOT the `service_role` key — never put that one
@@ -111,30 +134,60 @@ via GitHub's "uploading an existing file" page, then commit.
 4. **Upload Combined Report** — for files that already have both sales and
    activation data in one row per unit (e.g. regional customer reports).
 5. **Dashboard** for a running view by RTM category, model, and location,
-   toggle between "By sales date" / "By activation date".
+   toggle between "By sales date" / "By activation date" — plus a **Sales
+   Trend** panel further down driven by your PSI Sales Data uploads.
 6. **IMEI Search** to trace any single unit's full history.
 7. **Master Settings** — tag customers to an RTM category (admin only).
-8. **PSI Files → Upload Shipment Plan / PSI Report** — see below.
+8. **PSI Files** (its own tinted section in the sidebar) — see below.
 
 ## PSI Files feature (Purchase / Sales / Inventory report)
 
-A **PSI Files** section in the sidebar adds two pages:
+This section reads your **actual** business workbooks directly — not a
+custom template you have to reformat. Each upload page scans every sheet in
+the file you give it and finds the right one on its own, so it keeps working
+even though these workbooks routinely have 20–60+ unrelated tabs and the
+sheet names shift every time (e.g. "Sales till 8th Aug 2026" becomes
+"Sales till 7th Sep 2026" next month).
 
-1. **Upload Shipment Plan** — a *planning-level* file (one row per Model /
-   Storage / Color / Location / Week, not per-IMEI). Expected columns
-   (header names are matched loosely, any order): `LOB, Sub LOB, Model,
-   Storage, Color, Customer, Location, Week, Planned Qty, FGOS, Backlog`.
-2. **PSI Report** — rolls up your Sales File + Activation Check data
-   together with the Shipment Plan into one table: LOB / Sub LOB / Storage
-   / Color / Sell-in / Sell through / Activated / In channel / 6-Month
-   Sell Trend / Inventory-in-hand (SG, DXB, LE PK) / Shipment Plan
-   (WK-1, WK-2, WK-3) / Backlog / Total Upcoming / FGOS / DOS / WOS.
-   Filterable by RTM / Customer / Model, downloadable as an Excel file
-   (same grouped-header layout) via **Download PSI File (.xlsx)**.
+Four upload pages, each with its own colored tag:
 
-Full detail on how each PSI column is computed — and which parts are
-best-effort assumptions worth sanity-checking against real data — is in
-the comment block at the top of `supabase/migration_psi.sql`.
+1. **Upload Sales Data** — your Purchase & Sell workbook; finds the
+   "Sales till …" sheet. Full running history back to 2019 — re-uploading a
+   newer export is safe, lines already in the database (matched by
+   Document Number + Part No) are skipped automatically.
+2. **Upload Purchase Data** — same workbook, finds the "Purchases till …"
+   sheet. Same safe-re-upload behavior.
+3. **Upload Inventory** — your Apple Distribution Inventory Value workbook;
+   finds the consolidated warehouse-value sheet. Each upload is a full
+   point-in-time snapshot — the report always uses your **most recent**
+   upload, not a sum of every one you've ever done.
+4. **Upload Shipment Plan** — your Shipment Plan (Cash Flow) workbook;
+   finds the "Shipment plan" sheet and reads its weekly columns straight
+   from the file's own header rows (works even as the week labels shift
+   forward). Each upload replaces the previous one as the active plan.
+
+**PSI Report** rolls all four together into one table, grouped by LOB / Sub
+LOB: Sell-in Qty/Value / Sell-through Qty/Value / Inventory-in-hand (SG, DXB,
+LE PK) / Inventory Total / Shipment Plan (Wk-1/2/3) / Backlog / Total
+Upcoming / DOS / WOS. Filterable by LOB / Sub LOB and by period (This Week /
+Month / Quarter / All Time), downloadable as an Excel file with the same
+grouped-header layout via **Download PSI File (.xlsx)**.
+
+This is deliberately **separate from the IMEI-based tracking** above (its
+own tables, own upload types) per your instruction not to mix the two — so
+the "Activated" / "In channel" columns from your original format image
+aren't in this version, since none of these 3 files carry per-IMEI
+activation data. If you later have a per-IMEI activation file for these same
+products, tell me and I'll wire it in as an additional column without
+touching anything else here.
+
+Full detail on how each PSI column is computed — location-bucket mapping,
+period definitions, DOS/WOS formula — and which parts are best-effort
+assumptions worth sanity-checking against your real numbers, is in the
+comment block at the top of `supabase/migration_psi.sql`. In particular,
+check the `psi_location_groups` table if the SG/DXB/LE PK inventory split
+looks off — it's a plain lookup table you can edit directly in Supabase's
+Table Editor, no code change needed.
 
 ## Roles
 
