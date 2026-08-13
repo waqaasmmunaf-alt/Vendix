@@ -1,4 +1,4 @@
-const SUPABASE_URL = 'https://your-project-ref.supabase.co';
+const SUPABASE_URL = xmettpgrroemvhpzguhu;
 const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtZXR0cGdycm9lbXZocHpndWh1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjYyMDU4MCwiZXhwIjoyMTAyMTk2NTgwfQ.N_lFPTtb6hIhKNI-g65olqpUrEn-iuw1j-G5aZP7KG4
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
