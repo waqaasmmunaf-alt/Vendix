@@ -14,6 +14,36 @@ above and doesn't touch or depend on it.
 The UI has also been redesigned — a light, blue "premium" console theme
 (icon sidebar, card-based dashboard) instead of the earlier navy/gold look.
 
+## Recent changes in this build
+
+- **Nav is now 4 collapsible categories** — Upload, Search, PSI Files, and
+  (admin-only) Settings — collapsed by default for a clean sidebar, and
+  auto-expanding whichever one contains the page you're on. Sub-item labels
+  are short (e.g. "Sales File" under Upload, not "Upload Sales File").
+- **Sales Trend moved to the top of the Dashboard**, above the IMEI charts.
+- **Combined Report / PK Import column matching fixed** — Activation Status,
+  Customer Name, Part No, and Serial No are now recognized under more header
+  spellings, so real exports (e.g. "Activation Status" with a space, "Customer
+  Name" instead of just "Customer") no longer silently default to unactivated /
+  "Unknown Customer."
+- **New "Upload PK Import" page** (same file format as Combined Report) —
+  every customer created from a file uploaded there is tagged RTM Category
+  "PK Import" automatically. On the regular upload pages, a row whose own RTM
+  Category column says "PK Import" is instead recorded as "LE PK." This only
+  applies the first time a customer is created — an existing customer's RTM
+  Category is never changed by a later upload.
+- **New "Invoice Search" page** (Search → Invoice) — looks up every unit under
+  one PFI / Invoice number, same detail view as IMEI Search.
+- **PSI Report now matches by Part No** instead of by comparing LOB/Sub-LOB
+  text between your Sales/Purchase/Inventory files and your Shipment Plan file
+  — fixes cases where a spelling difference used to leave Shipment Plan qty
+  out of the report (surfaced before as "unmatchedShipmentQty").
+
+Deploying this build over an existing project: re-run `schema_part2_live_features.sql`
+and `migration_psi.sql` (in that order) in the Supabase SQL Editor — both are
+safe to re-run on top of your existing data (functions use `create or replace`,
+new tables/policies check for existing objects first, nothing is dropped).
+
 ## ⚠️ Please read before you deploy
 
 This copy's backend was rebuilt from scratch by reading the app's own

@@ -88,9 +88,6 @@ drop function if exists finalize_purchase_ledger_batch(bigint, int) cascade;
 drop function if exists process_inventory_snapshot_chunk(bigint, jsonb) cascade;
 drop function if exists finalize_inventory_snapshot_batch(bigint, int) cascade;
 
-drop table if exists shipment_plan_weeks cascade;
-drop table if exists shipment_plan_items cascade;
-
 -- ---------------------------------------------------------
 -- Allow the new upload types
 -- ---------------------------------------------------------
@@ -112,93 +109,111 @@ begin
     add constraint upload_batches_upload_type_check
     check (upload_type in (
       'ops_export', 'activation_check', 'combined_report', 'shipment_plan',
-      'sales_ledger', 'purchase_ledger', 'inventory_snapshot'
+      'sales_ledger', 'purchase_ledger', 'inventory_snapshot', 'pk_import'
     ));
 end $$;
 
+-- Invoice Search (PFI #) looks up imei_records by proforma_invoice_no —
+-- give it an index since it wasn't indexed before.
+create index if not exists idx_imei_records_pfi on imei_records(proforma_invoice_no);
+
 -- ---------------------------------------------------------
 -- SALES TRANSACTIONS  (from "Sales till ..." sheet)
+-- Wrapped so re-running this whole file is a no-op here once the table
+-- exists — never drops/recreates, so accumulated history is never at risk.
 -- ---------------------------------------------------------
-create table sales_transactions (
-    id              bigint generated always as identity primary key,
-    upload_batch_id bigint references upload_batches(id),
-    part_no         text,
-    lob             text,
-    sub_lob         text,
-    description     text,
-    sale_date       date,
-    apple_year      text,
-    apple_qtr       text,
-    apple_week      text,
-    document_number text,
-    qty             numeric,
-    cost            numeric,
-    sale_price      numeric,
-    revenue         numeric,
-    customer_name   text,
-    sales_person    text,
-    created_at      timestamptz not null default now(),
-    unique (document_number, part_no)
-);
-create index idx_sales_txn_date on sales_transactions(sale_date);
-create index idx_sales_txn_lob on sales_transactions(lob, sub_lob);
-create index idx_sales_txn_batch on sales_transactions(upload_batch_id);
-
-alter table sales_transactions enable row level security;
-create policy "sales_txn_select_all" on sales_transactions for select using (auth.role() = 'authenticated');
+do $$
+begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'sales_transactions') then
+    create table sales_transactions (
+        id              bigint generated always as identity primary key,
+        upload_batch_id bigint references upload_batches(id),
+        part_no         text,
+        lob             text,
+        sub_lob         text,
+        description     text,
+        sale_date       date,
+        apple_year      text,
+        apple_qtr       text,
+        apple_week      text,
+        document_number text,
+        qty             numeric,
+        cost            numeric,
+        sale_price      numeric,
+        revenue         numeric,
+        customer_name   text,
+        sales_person    text,
+        created_at      timestamptz not null default now(),
+        unique (document_number, part_no)
+    );
+    create index idx_sales_txn_date on sales_transactions(sale_date);
+    create index idx_sales_txn_lob on sales_transactions(lob, sub_lob);
+    create index idx_sales_txn_batch on sales_transactions(upload_batch_id);
+    alter table sales_transactions enable row level security;
+    create policy "sales_txn_select_all" on sales_transactions for select using (auth.role() = 'authenticated');
+  end if;
+end $$;
 
 -- ---------------------------------------------------------
 -- PURCHASE TRANSACTIONS  (from "Purchases till ..." sheet)
 -- ---------------------------------------------------------
-create table purchase_transactions (
-    id              bigint generated always as identity primary key,
-    upload_batch_id bigint references upload_batches(id),
-    part_no         text,
-    lob             text,
-    sub_lob         text,
-    description     text,
-    purchase_date   date,
-    apple_year      text,
-    apple_qtr       text,
-    apple_week      text,
-    document_number text,
-    qty             numeric,
-    price           numeric,
-    amount          numeric,
-    vendor          text,
-    created_at      timestamptz not null default now(),
-    unique (document_number, part_no)
-);
-create index idx_purchase_txn_date on purchase_transactions(purchase_date);
-create index idx_purchase_txn_lob on purchase_transactions(lob, sub_lob);
-create index idx_purchase_txn_batch on purchase_transactions(upload_batch_id);
-
-alter table purchase_transactions enable row level security;
-create policy "purchase_txn_select_all" on purchase_transactions for select using (auth.role() = 'authenticated');
+do $$
+begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'purchase_transactions') then
+    create table purchase_transactions (
+        id              bigint generated always as identity primary key,
+        upload_batch_id bigint references upload_batches(id),
+        part_no         text,
+        lob             text,
+        sub_lob         text,
+        description     text,
+        purchase_date   date,
+        apple_year      text,
+        apple_qtr       text,
+        apple_week      text,
+        document_number text,
+        qty             numeric,
+        price           numeric,
+        amount          numeric,
+        vendor          text,
+        created_at      timestamptz not null default now(),
+        unique (document_number, part_no)
+    );
+    create index idx_purchase_txn_date on purchase_transactions(purchase_date);
+    create index idx_purchase_txn_lob on purchase_transactions(lob, sub_lob);
+    create index idx_purchase_txn_batch on purchase_transactions(upload_batch_id);
+    alter table purchase_transactions enable row level security;
+    create policy "purchase_txn_select_all" on purchase_transactions for select using (auth.role() = 'authenticated');
+  end if;
+end $$;
 
 -- ---------------------------------------------------------
 -- INVENTORY SNAPSHOTS  (from "CONSOLIDATED with Value" sheet)
 -- One row per Part No x Location. Report always uses latest batch only.
 -- ---------------------------------------------------------
-create table inventory_snapshots (
-    id              bigint generated always as identity primary key,
-    upload_batch_id bigint references upload_batches(id),
-    snapshot_date   date,
-    part_no         text,
-    lob             text,
-    sub_lob         text,
-    description     text,
-    location        text,   -- raw warehouse column name, e.g. 'SG', 'Dafza', 'PK'
-    qty             numeric,
-    value           numeric,
-    created_at      timestamptz not null default now()
-);
-create index idx_inv_snap_batch on inventory_snapshots(upload_batch_id);
-create index idx_inv_snap_lob on inventory_snapshots(lob, sub_lob);
-create index idx_inv_snap_location on inventory_snapshots(location);
-
-alter table inventory_snapshots enable row level security;
-create policy "inv_snap_select_all" on inventory_snapshots for select using (auth.role() = 'authenticated');
+do $$
+begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'inventory_snapshots') then
+    create table inventory_snapshots (
+        id              bigint generated always as identity primary key,
+        upload_batch_id bigint references upload_batches(id),
+        snapshot_date   date,
+        part_no         text,
+        lob             text,
+        sub_lob         text,
+        description     text,
+        location        text,   -- raw warehouse column name, e.g. 'SG', 'Dafza', 'PK'
+        qty             numeric,
+        value           numeric,
+        created_at      timestamptz not null default now()
+    );
+    create index idx_inv_snap_batch on inventory_snapshots(upload_batch_id);
+    create index idx_inv_snap_lob on inventory_snapshots(lob, sub_lob);
+    create index idx_inv_snap_location on inventory_snapshots(location);
+    alter table inventory_snapshots enable row level security;
+    create policy "inv_snap_select_all" on inventory_snapshots for select using (auth.role() = 'authenticated');
+  end if;
+end $$;
 
 -- Maps raw warehouse location names -> the 3 PSI report buckets.
 -- Edit freely: update psi_location_groups set group_label = '...' where location = '...';
@@ -218,38 +233,58 @@ insert into psi_location_groups (location, group_label, sort_order) values
   ('PK', 'LE PK', 3)
 on conflict (location) do nothing;
 
+do $$
+begin
+  if not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                  where c.relname = 'psi_location_groups' and n.nspname = 'public' and c.relrowsecurity) then
+    alter table psi_location_groups enable row level security;
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'psi_location_groups' and policyname = 'psi_loc_groups_select_all') then
+    create policy "psi_loc_groups_select_all" on psi_location_groups for select using (auth.role() = 'authenticated');
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'psi_location_groups' and policyname = 'psi_loc_groups_admin_write') then
+    create policy "psi_loc_groups_admin_write" on psi_location_groups for all using (is_admin()) with check (is_admin());
+  end if;
+end $$;
+
 -- ---------------------------------------------------------
 -- SHIPMENT PLAN  (from "Shipment plan" sheet — dynamic weekly columns)
 -- ---------------------------------------------------------
-create table shipment_plan_items (
-    id                bigint generated always as identity primary key,
-    upload_batch_id   bigint references upload_batches(id),
-    product_category  text,   -- LOB
-    model             text,   -- Sub LOB / model name
-    part_no           text,   -- Apple Part#
-    description       text,
-    total_backlog     numeric default 0,
-    rollover_qty      numeric default 0,
-    created_at        timestamptz not null default now()
-);
-create index idx_shipplan_item_batch on shipment_plan_items(upload_batch_id);
-create index idx_shipplan_item_cat on shipment_plan_items(product_category, model);
+do $$
+begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'shipment_plan_items') then
+    create table shipment_plan_items (
+        id                bigint generated always as identity primary key,
+        upload_batch_id   bigint references upload_batches(id),
+        product_category  text,   -- LOB
+        model             text,   -- Sub LOB / model name
+        part_no           text,   -- Apple Part#
+        description       text,
+        total_backlog     numeric default 0,
+        rollover_qty      numeric default 0,
+        created_at        timestamptz not null default now()
+    );
+    create index idx_shipplan_item_batch on shipment_plan_items(upload_batch_id);
+    create index idx_shipplan_item_cat on shipment_plan_items(product_category, model);
+    alter table shipment_plan_items enable row level security;
+    create policy "shipplan_item_select_all" on shipment_plan_items for select using (auth.role() = 'authenticated');
+  end if;
 
-create table shipment_plan_weeks (
-    id                     bigint generated always as identity primary key,
-    shipment_plan_item_id  bigint references shipment_plan_items(id) on delete cascade,
-    week_index             int not null,   -- 1 = nearest week, 2 = next, ...
-    week_label             text,           -- e.g. 'FY26 Q4 WK7'
-    week_ending            date,
-    planned_qty            numeric default 0
-);
-create index idx_shipplan_week_item on shipment_plan_weeks(shipment_plan_item_id);
-create index idx_shipplan_week_idx on shipment_plan_weeks(week_index);
-
-alter table shipment_plan_items enable row level security;
-alter table shipment_plan_weeks enable row level security;
-create policy "shipplan_item_select_all" on shipment_plan_items for select using (auth.role() = 'authenticated');
-create policy "shipplan_week_select_all" on shipment_plan_weeks for select using (auth.role() = 'authenticated');
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'shipment_plan_weeks') then
+    create table shipment_plan_weeks (
+        id                     bigint generated always as identity primary key,
+        shipment_plan_item_id  bigint references shipment_plan_items(id) on delete cascade,
+        week_index             int not null,   -- 1 = nearest week, 2 = next, ...
+        week_label             text,           -- e.g. 'FY26 Q4 WK7'
+        week_ending            date,
+        planned_qty            numeric default 0
+    );
+    create index idx_shipplan_week_item on shipment_plan_weeks(shipment_plan_item_id);
+    create index idx_shipplan_week_idx on shipment_plan_weeks(week_index);
+    alter table shipment_plan_weeks enable row level security;
+    create policy "shipplan_week_select_all" on shipment_plan_weeks for select using (auth.role() = 'authenticated');
+  end if;
+end $$;
 
 -- ============================================================
 -- UPLOAD RPCs — same chunked create/process/finalize pattern as the
@@ -648,12 +683,36 @@ begin
     and (array_length(p_lobs,1) is null or s.lob = any(p_lobs))
     and (array_length(p_sub_lobs,1) is null or s.sub_lob = any(p_sub_lobs));
 
-  -- one row per SKU (Part No) in the latest shipment-plan upload
+  -- Part No -> canonical (LOB, Sub LOB), built from Sales/Purchase/Inventory
+  -- history (whichever source most recently saw that Part No). Shipment Plan
+  -- rows are grouped via this Part No match instead of by comparing their own
+  -- LOB/Model text against Sales/Purchase/Inventory — Part No is a much more
+  -- reliable join key than free text that can be spelled differently between
+  -- files (this is what used to cause "unmatchedShipmentQty" to run high).
+  create temp table _psi_part_map on commit drop as
+  select distinct on (part_no) part_no, lob, sub_lob
+  from (
+    select part_no, coalesce(nullif(trim(lob),''),'Unknown') as lob, coalesce(nullif(trim(sub_lob),''),'Unknown') as sub_lob, created_at
+    from sales_transactions where part_no is not null
+    union all
+    select part_no, coalesce(nullif(trim(lob),''),'Unknown'), coalesce(nullif(trim(sub_lob),''),'Unknown'), created_at
+    from purchase_transactions where part_no is not null
+    union all
+    select part_no, coalesce(nullif(trim(lob),''),'Unknown'), coalesce(nullif(trim(sub_lob),''),'Unknown'), created_at
+    from inventory_snapshots where part_no is not null
+  ) x
+  order by part_no, created_at desc;
+
+  -- one row per SKU (Part No) in the latest shipment-plan upload — LOB/Sub LOB
+  -- comes from the Part No map when that part is known elsewhere; falls back
+  -- to the shipment file's own text only for a part never seen in Sales/
+  -- Purchase/Inventory at all.
   create temp table _psi_shipment_items on commit drop as
-  select coalesce(nullif(trim(i.product_category),''),'Unknown') as lob,
-         coalesce(nullif(trim(i.model),''),'Unknown') as sub_lob,
+  select coalesce(pm.lob, coalesce(nullif(trim(i.product_category),''),'Unknown')) as lob,
+         coalesce(pm.sub_lob, coalesce(nullif(trim(i.model),''),'Unknown')) as sub_lob,
          i.id, i.part_no, i.total_backlog
   from shipment_plan_items i
+  left join _psi_part_map pm on pm.part_no = i.part_no
   where i.upload_batch_id = v_latest_ship_batch;
 
   -- one row per SKU x week

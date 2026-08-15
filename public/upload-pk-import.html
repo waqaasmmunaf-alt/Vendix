@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload PK Import — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><span class="brand-mark">V</span><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>Upload PK Import</h2>
+      <p class="page-subtitle">
+        Same file format as Combined Report (one row per unit, sales + activation data
+        together). Every customer created from a file uploaded here is tagged RTM Category
+        <strong>"PK Import"</strong> automatically — no need for the file's own RTM Category
+        column to say so.
+      </p>
+
+      <form class="upload-card" id="upload-form">
+        <input type="file" id="file-input" accept=".xlsx,.xls" />
+        <button type="submit" class="btn-primary" id="upload-btn" disabled>Upload File</button>
+      </form>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="result-box" style="display:none;" class="result-card"></div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/excelParser.js"></script>
+  <script src="js/uploadPkImport.js"></script>
+</body>
+</html>

@@ -151,8 +151,17 @@ begin
     raise exception 'Not authorized to upload';
   end if;
 
-  insert into customers (name)
-  select distinct trim(r->>'customer_name')
+  -- New customers only: if this row's own RTM Category column says "PK Import",
+  -- file it under "LE PK" instead (per the rule: "PK Import" as a category name
+  -- is reserved for batches uploaded through the dedicated Upload PK Import page).
+  -- Any other RTM Category text in the file is left alone — RTM stays a manual,
+  -- admin-assigned field for every value except this one special case.
+  -- Existing customers are never re-tagged by a later upload (on conflict do nothing).
+  insert into customers (name, rtm_category_id)
+  select distinct trim(r->>'customer_name'),
+    case when lower(trim(coalesce(r->>'rtm_category_text',''))) = 'pk import'
+         then (select id from rtm_categories where name = 'LE PK')
+         else null end
   from jsonb_array_elements(p_rows) r
   where trim(coalesce(r->>'customer_name','')) <> ''
   on conflict (name) do nothing;
@@ -200,8 +209,65 @@ begin
     raise exception 'Not authorized to upload';
   end if;
 
-  insert into customers (name)
-  select distinct trim(r->>'customer_name')
+  -- Same "PK Import" -> "LE PK" rule as process_ops_export_chunk — see the
+  -- comment there. Every other RTM Category value is left untouched.
+  insert into customers (name, rtm_category_id)
+  select distinct trim(r->>'customer_name'),
+    case when lower(trim(coalesce(r->>'rtm_category_text',''))) = 'pk import'
+         then (select id from rtm_categories where name = 'LE PK')
+         else null end
+  from jsonb_array_elements(p_rows) r
+  where trim(coalesce(r->>'customer_name','')) <> ''
+  on conflict (name) do nothing;
+
+  with inserted as (
+    insert into imei_records (
+      imei1, imei2, serial_no, model, description, part_no, qty,
+      proforma_invoice_no, customer_id, date_of_shipment, apple_week, apple_qtr, apple_year,
+      status, activated_date, activated_apple_week, activated_apple_qtr, activated_apple_year,
+      activation_remark, upload_batch_id
+    )
+    select
+      r->>'imei1', r->>'imei2', r->>'serial_no', r->>'model', r->>'description', r->>'part_no',
+      coalesce((r->>'qty')::int, 1),
+      r->>'proforma_invoice_no', c.id,
+      nullif(r->>'date_of_shipment','')::date,
+      ac_ship.apple_week, ac_ship.apple_qtr, ac_ship.apple_year,
+      coalesce(r->>'status', 'unactivated'),
+      nullif(r->>'activated_date','')::date,
+      ac_act.apple_week, ac_act.apple_qtr, ac_act.apple_year,
+      r->>'activation_remark',
+      p_batch_id
+    from jsonb_array_elements(p_rows) r
+    left join customers c on c.name = trim(r->>'customer_name')
+    left join apple_calendar ac_ship on ac_ship.calendar_date = nullif(r->>'date_of_shipment','')::date
+    left join apple_calendar ac_act on ac_act.calendar_date = nullif(r->>'activated_date','')::date
+    returning 1
+  )
+  select count(*) into v_inserted from inserted;
+
+  return v_inserted;
+end;
+$$;
+
+-- rows: same shape as process_combined_report_chunk (this page reuses the
+-- Combined Report file format/parser) — the only difference is every new
+-- customer created from this batch is force-tagged RTM Category "PK Import",
+-- regardless of what (if anything) the file's own RTM Category column says.
+create or replace function process_pk_import_chunk(p_batch_id bigint, p_rows jsonb)
+returns int
+language plpgsql
+security definer
+as $$
+declare
+  v_inserted int;
+begin
+  if not is_admin_or_sales() then
+    raise exception 'Not authorized to upload';
+  end if;
+
+  insert into customers (name, rtm_category_id)
+  select distinct trim(r->>'customer_name'), (select id from rtm_categories where name = 'PK Import')
   from jsonb_array_elements(p_rows) r
   where trim(coalesce(r->>'customer_name','')) <> ''
   on conflict (name) do nothing;

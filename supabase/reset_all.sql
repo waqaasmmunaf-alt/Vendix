@@ -46,6 +46,7 @@ drop function if exists hard_delete_batch(bigint) cascade;
 drop function if exists finalize_activation_batch(bigint, int, int) cascade;
 drop function if exists process_activation_check_chunk(bigint, jsonb) cascade;
 drop function if exists finalize_ops_or_combined_batch(bigint, int) cascade;
+drop function if exists process_pk_import_chunk(bigint, jsonb) cascade;
 drop function if exists process_combined_report_chunk(bigint, jsonb) cascade;
 drop function if exists process_ops_export_chunk(bigint, jsonb) cascade;
 drop function if exists create_upload_batch(text, text) cascade;

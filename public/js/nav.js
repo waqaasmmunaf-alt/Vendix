@@ -18,7 +18,9 @@ const NAV_ICONS = {
   chart: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>',
   dollar: '<circle cx="12" cy="12" r="9"/><path d="M12 6v12"/><path d="M15.5 9.5c0-1.4-1.6-2.5-3.5-2.5s-3.5 1-3.5 2.5S10 12 12 12s3.5 1 3.5 2.5-1.6 2.5-3.5 2.5-3.5-1.1-3.5-2.5"/>',
   cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7H6"/>',
-  archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>'
+  archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+  receipt: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>',
+  pin: '<path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.5"/>'
 };
 
 function navIcon(key) {
@@ -26,49 +28,107 @@ function navIcon(key) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 }
 
+const NAV_CHEVRON = '<svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+
+function linkHtml(item, activePage) {
+  return `<a href="${item.href}" class="${item.key === activePage ? 'active' : ''}">${navIcon(item.icon)}<span>${item.label}</span></a>`;
+}
+
+// Renders a collapsible nav group: a clickable header (icon + label + chevron)
+// with its links nested underneath. Open state is remembered per-browser via
+// localStorage, but a group is always forced open if it contains the active page.
+function groupHtml(group, activePage, extraClass) {
+  const containsActive = group.items.some((i) => i.key === activePage);
+  let stored = null;
+  try { stored = localStorage.getItem('vendix_nav_' + group.key + '_open'); } catch (e) { /* ignore */ }
+  const isOpen = containsActive || stored === '1' || (stored === null && group.defaultOpen !== false);
+
+  return `<div class="nav-group ${extraClass || ''} ${isOpen ? 'open' : ''}" data-group-key="${group.key}">
+    <button type="button" class="nav-group-toggle">
+      ${navIcon(group.icon)}<span>${group.label}</span>${NAV_CHEVRON}
+    </button>
+    <div class="nav-subgroup">
+      ${group.items.map((i) => linkHtml(i, activePage)).join('')}
+    </div>
+  </div>`;
+}
+
 function renderLayout(activePage, profile) {
   const isAdmin = profile.role === 'admin';
 
-  const navItems = [
-    { href: 'dashboard.html', label: 'Dashboard', key: 'dashboard', icon: 'dashboard' },
-    { href: 'upload-ops.html', label: 'Upload Sales File', key: 'upload-ops', icon: 'upload' },
-    { href: 'upload-activation.html', label: 'Upload Activation Check', key: 'upload-activation', icon: 'check' },
-    { href: 'upload-combined.html', label: 'Upload Combined Report', key: 'upload-combined', icon: 'layers' },
-    { href: 'inventory.html', label: 'Inventory', key: 'inventory', icon: 'box' },
-    { href: 'search.html', label: 'IMEI Search', key: 'search', icon: 'search' },
-    { href: 'settings.html', label: 'Master Settings', key: 'settings', icon: 'sliders' }
-  ];
-  if (isAdmin) {
-    navItems.push(
+  // IMEI-based uploads, grouped under one collapsible "Upload" category.
+  // Labels are short — the group header already says "Upload".
+  const uploadGroup = {
+    key: 'upload', label: 'Upload', icon: 'upload', defaultOpen: false,
+    items: [
+      { href: 'upload-ops.html', label: 'Sales File', key: 'upload-ops', icon: 'upload' },
+      { href: 'upload-activation.html', label: 'Activation Check', key: 'upload-activation', icon: 'check' },
+      { href: 'upload-combined.html', label: 'Combined Report', key: 'upload-combined', icon: 'layers' },
+      { href: 'upload-pk-import.html', label: 'PK Import', key: 'upload-pk-import', icon: 'pin' }
+    ]
+  };
+
+  // Search — IMEI trace + Invoice (PFI #) lookup, same imei_records data,
+  // different lookup key.
+  const searchGroup = {
+    key: 'search-group', label: 'Search', icon: 'search', defaultOpen: false,
+    items: [
+      { href: 'search.html', label: 'IMEI', key: 'search', icon: 'search' },
+      { href: 'invoice-search.html', label: 'Invoice', key: 'invoice-search', icon: 'receipt' }
+    ]
+  };
+
+  // PSI Files — its own data pipeline (Sales/Purchase ledgers, Inventory
+  // snapshot, Shipment plan — all SKU-level, independent of the IMEI-based
+  // tracking above), grouped under a collapsible, tinted category.
+  const psiGroup = {
+    key: 'psi', label: 'PSI Files', icon: 'chart', defaultOpen: false,
+    items: [
+      { href: 'upload-sales-ledger.html', label: 'Sales Data', key: 'upload-sales-ledger', icon: 'dollar' },
+      { href: 'upload-purchase-ledger.html', label: 'Purchase Data', key: 'upload-purchase-ledger', icon: 'cart' },
+      { href: 'upload-inventory-snapshot.html', label: 'Inventory', key: 'upload-inventory-snapshot', icon: 'archive' },
+      { href: 'upload-shipment-plan.html', label: 'Shipment Plan', key: 'upload-shipment-plan', icon: 'truck' },
+      { href: 'psi-report.html', label: 'PSI Report', key: 'psi-report', icon: 'chart' }
+    ]
+  };
+
+  // Settings — admin-only housekeeping pages, grouped under one category.
+  const settingsGroup = {
+    key: 'admin-settings', label: 'Settings', icon: 'sliders', defaultOpen: false,
+    items: [
       { href: 'trash.html', label: 'Trash', key: 'trash', icon: 'trash' },
       { href: 'manage-uploads.html', label: 'Manage Uploads', key: 'manage-uploads', icon: 'list' },
+      { href: 'settings.html', label: 'Master Settings', key: 'settings', icon: 'sliders' },
       { href: 'audit-log.html', label: 'Audit Log', key: 'audit-log', icon: 'clock' },
       { href: 'users.html', label: 'Users', key: 'users', icon: 'users' }
-    );
-  }
+    ]
+  };
 
-  // PSI Files — kept in its own visually-separate, tinted group (own data
-  // pipeline: Sales/Purchase ledgers, Inventory snapshot, Shipment plan — all
-  // SKU-level, independent of the IMEI-based tracking above).
-  const psiItems = [
-    { href: 'upload-sales-ledger.html', label: 'Upload Sales Data', key: 'upload-sales-ledger', icon: 'dollar' },
-    { href: 'upload-purchase-ledger.html', label: 'Upload Purchase Data', key: 'upload-purchase-ledger', icon: 'cart' },
-    { href: 'upload-inventory-snapshot.html', label: 'Upload Inventory', key: 'upload-inventory-snapshot', icon: 'archive' },
-    { href: 'upload-shipment-plan.html', label: 'Upload Shipment Plan', key: 'upload-shipment-plan', icon: 'truck' },
-    { href: 'psi-report.html', label: 'PSI Report', key: 'psi-report', icon: 'chart' }
+  const topItems = [
+    { href: 'dashboard.html', label: 'Dashboard', key: 'dashboard', icon: 'dashboard' }
+  ];
+  const midItems = [
+    { href: 'inventory.html', label: 'Inventory', key: 'inventory', icon: 'box' }
   ];
 
-  const linkHtml = (item) =>
-    `<a href="${item.href}" class="${item.key === activePage ? 'active' : ''}">${navIcon(item.icon)}<span>${item.label}</span></a>`;
-
-  const navHtml = navItems.map(linkHtml).join('') +
-    `<div class="nav-group-psi">
-      <span class="nav-section-label">PSI Files</span>
-      ${psiItems.map(linkHtml).join('')}
-    </div>`;
+  const navHtml =
+    topItems.map((i) => linkHtml(i, activePage)).join('') +
+    groupHtml(uploadGroup, activePage) +
+    midItems.map((i) => linkHtml(i, activePage)).join('') +
+    groupHtml(searchGroup, activePage) +
+    groupHtml(psiGroup, activePage, 'nav-group-psi') +
+    (isAdmin ? groupHtml(settingsGroup, activePage) : '');
 
   document.getElementById('sidebar-nav').innerHTML = navHtml;
   document.getElementById('user-name').textContent = profile.name;
   document.getElementById('user-role').textContent = profile.role;
   document.getElementById('logout-btn').addEventListener('click', logout);
+
+  document.querySelectorAll('.nav-group-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const group = btn.closest('.nav-group');
+      const isOpen = group.classList.toggle('open');
+      try { localStorage.setItem('vendix_nav_' + group.dataset.groupKey + '_open', isOpen ? '1' : '0'); } catch (e) { /* ignore */ }
+    });
+  });
 }

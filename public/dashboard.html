@@ -35,7 +35,17 @@
         </div>
       </div>
 
-      <div class="filter-bar" id="dash-filters">
+      <div class="dash-header">
+        <h2><span class="source-pill sell-through">PSI Data</span> Sales Trend</h2>
+        <div class="toggle-group" id="trend-metric-toggle">
+          <button class="toggle-btn active" data-metric="qty">Units</button>
+          <button class="toggle-btn" data-metric="revenue">Revenue</button>
+        </div>
+      </div>
+      <p class="page-subtitle">From your Sales Data uploads (SKU-level ledger) — independent of the IMEI charts below.</p>
+      <div id="psi-trend-content"><div class="loading">Loading sales trend...</div></div>
+
+      <div class="filter-bar" id="dash-filters" style="margin-top:32px;">
         <div class="multiselect" id="ms-d-rtm"><button type="button" class="multiselect-btn">RTM: All</button><div class="multiselect-panel"></div></div>
         <div class="multiselect" id="ms-d-customer"><button type="button" class="multiselect-btn">Customer: All</button><div class="multiselect-panel"></div></div>
         <div class="multiselect" id="ms-d-model"><button type="button" class="multiselect-btn">Model: All</button><div class="multiselect-panel"></div></div>
@@ -46,16 +56,6 @@
 
       <div id="error-box" class="alert-error" style="display:none;"></div>
       <div id="dashboard-content"><div class="loading">Loading dashboard...</div></div>
-
-      <div class="dash-header" style="margin-top:32px;">
-        <h2><span class="source-pill sell-through">PSI Data</span> Sales Trend</h2>
-        <div class="toggle-group" id="trend-metric-toggle">
-          <button class="toggle-btn active" data-metric="qty">Units</button>
-          <button class="toggle-btn" data-metric="revenue">Revenue</button>
-        </div>
-      </div>
-      <p class="page-subtitle">From your Sales Data uploads (SKU-level ledger) — independent of the IMEI charts above.</p>
-      <div id="psi-trend-content"><div class="loading">Loading sales trend...</div></div>
     </main>
   </div>
 

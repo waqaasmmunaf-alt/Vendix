@@ -12,9 +12,12 @@ const OPS_HEADER_MAP = {
   'order reference no': 'order_reference_no',
   'proforma invoice no': 'proforma_invoice_no',
   'bill to customer name': 'customer_name',
+  'customer name': 'customer_name',
+  'customer': 'customer_name',
   'ship to name': 'ship_to_name',
   'actual customer name incase forwarder': 'actual_customer_forwarder',
   'part no': 'part_no',
+  'part number': 'part_no',
   'description': 'description',
   'color': 'color',
   'gb': 'gb',
@@ -26,7 +29,9 @@ const OPS_HEADER_MAP = {
   'imei 1': 'imei1',
   'imei 2': 'imei2',
   'apple qtr': 'apple_qtr',
-  'apple year': 'apple_year'
+  'apple year': 'apple_year',
+  'rtm category': 'rtm_category_text',
+  'rtm': 'rtm_category_text'
 };
 
 const ACTIVATION_HEADER_MAP = {
@@ -43,17 +48,24 @@ const ACTIVATION_HEADER_MAP = {
 
 const COMBINED_HEADER_MAP = {
   'serial': 'serial_no',
+  'serial no': 'serial_no',
   'imei 1': 'imei1',
   'imei 2': 'imei2',
   'model': 'model',
   'description': 'description',
   'part number': 'part_no',
+  'part no': 'part_no',
   'qty': 'qty',
   'pfi': 'proforma_invoice_no',
+  'pfi no': 'proforma_invoice_no',
   'customer': 'customer_name',
+  'customer name': 'customer_name',
   'sales date': 'date_of_shipment',
   'activationstatus': 'activation_status',
-  'activation date': 'activated_date'
+  'activation status': 'activation_status',
+  'activation date': 'activated_date',
+  'rtm category': 'rtm_category_text',
+  'rtm': 'rtm_category_text'
 };
 
 const SHIPMENT_PLAN_HEADER_MAP = {
@@ -179,6 +191,7 @@ async function parseOpsExportFile(file) {
         order_reference_no: get('order_reference_no') || null,
         proforma_invoice_no: get('proforma_invoice_no') || null,
         customer_name: (get('customer_name') || '').toString().trim() || 'Unknown Customer',
+        rtm_category_text: (get('rtm_category_text') || '').toString().trim() || null,
         ship_to_name: get('ship_to_name') || null,
         actual_customer_forwarder: get('actual_customer_forwarder') || null,
         part_no: get('part_no') || null,
@@ -297,6 +310,7 @@ async function parseCombinedReportFile(file) {
         qty: get('qty') || 1,
         proforma_invoice_no: get('proforma_invoice_no') || null,
         customer_name: (get('customer_name') || '').toString().trim() || 'Unknown Customer',
+        rtm_category_text: (get('rtm_category_text') || '').toString().trim() || null,
         date_of_shipment: toDateString(get('date_of_shipment')),
         status,
         activated_date: status === 'activated' ? toDateString(get('activated_date')) : null,
