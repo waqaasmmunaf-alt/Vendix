@@ -42,7 +42,7 @@
       });
       if (createErr) throw new Error(createErr.message);
 
-      const CHUNK = 3000;
+      const CHUNK = 1000; // smaller chunks to stay under Supabase's statement timeout on large files
       let updatedTotal = 0;
 
       for (let i = 0; i < activatedRows.length; i += CHUNK) {

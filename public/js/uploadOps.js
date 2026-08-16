@@ -42,7 +42,7 @@
       });
       if (createErr) throw new Error(createErr.message);
 
-      const CHUNK = 3000;
+      const CHUNK = 1000; // smaller chunks to stay under Supabase's statement timeout on large files
       for (let i = 0; i < rows.length; i += CHUNK) {
         const chunkRows = rows.slice(i, i + CHUNK);
         const { error: chunkErr } = await supabaseClient.rpc('process_ops_export_chunk', {
