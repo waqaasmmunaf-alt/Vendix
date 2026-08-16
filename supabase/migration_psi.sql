@@ -247,6 +247,63 @@ begin
   end if;
 end $$;
 
+-- Maps raw (LOB, Sub LOB) text exactly as it appears in your files to one
+-- canonical pair, so the same real product doesn't fragment into multiple
+-- report rows just because your Sales/Purchase/Inventory/Shipment Plan files
+-- spell it differently (e.g. "Airpods" vs "AirPods", "Cable" vs "Cables").
+-- Matched case-insensitively. Edit/add rows any time in Table Editor:
+--   insert into psi_category_aliases (raw_lob, raw_sub_lob, canonical_lob, canonical_sub_lob)
+--   values ('Airpods', 'AirPods 4 (ANC)', 'AirPods', 'AirPods 4 (ANC)');
+create table if not exists psi_category_aliases (
+    id                 bigint generated always as identity primary key,
+    raw_lob            text not null,
+    raw_sub_lob        text not null,
+    canonical_lob      text not null,
+    canonical_sub_lob  text not null,
+    created_at         timestamptz not null default now(),
+    unique (raw_lob, raw_sub_lob)
+);
+insert into psi_category_aliases (raw_lob, raw_sub_lob, canonical_lob, canonical_sub_lob) values
+  ('Airpods', 'Cables', 'AirPods', 'Cable'),
+  ('AirPods', 'Cables', 'AirPods', 'Cable'),
+  ('Accessories', 'Cables', 'Accessories', 'Cable'),
+  ('Accessories', '20w Adapter', 'Accessories', 'Adapter'),
+  ('Airpods', 'AirPods', 'AirPods', 'AirPods 4 (ANC)'),
+  ('Airpods', 'AirPods 4 (ANC)', 'AirPods', 'AirPods 4 (ANC)'),
+  ('AirPods', 'AirPods (4th gen)', 'AirPods', 'AirPods 4 (ANC)'),
+  ('AirPods', 'AirPods 4 with ANC', 'AirPods', 'AirPods 4 (ANC)')
+on conflict (raw_lob, raw_sub_lob) do nothing;
+
+do $$
+begin
+  if not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                  where c.relname = 'psi_category_aliases' and n.nspname = 'public' and c.relrowsecurity) then
+    alter table psi_category_aliases enable row level security;
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'psi_category_aliases' and policyname = 'psi_cat_aliases_select_all') then
+    create policy "psi_cat_aliases_select_all" on psi_category_aliases for select using (auth.role() = 'authenticated');
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'psi_category_aliases' and policyname = 'psi_cat_aliases_admin_write') then
+    create policy "psi_cat_aliases_admin_write" on psi_category_aliases for all using (is_admin()) with check (is_admin());
+  end if;
+end $$;
+
+-- Applies psi_category_aliases to a raw (lob, sub_lob) pair — used everywhere
+-- PSI data is grouped, so the report, dashboard, and pivot all agree.
+create or replace function psi_canonicalize(p_lob text, p_sub_lob text, out lob text, out sub_lob text)
+returns record
+language sql
+stable
+as $$
+  select
+    coalesce(a.canonical_lob, coalesce(nullif(trim(p_lob),''),'Unknown')),
+    coalesce(a.canonical_sub_lob, coalesce(nullif(trim(p_sub_lob),''),'Unknown'))
+  from (select 1) x
+  left join psi_category_aliases a
+    on lower(trim(a.raw_lob)) = lower(trim(coalesce(p_lob,'')))
+   and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(p_sub_lob,'')))
+$$;
+
 -- ---------------------------------------------------------
 -- SHIPMENT PLAN  (from "Shipment plan" sheet — dynamic weekly columns)
 -- ---------------------------------------------------------
@@ -525,21 +582,22 @@ language sql
 stable
 security definer
 as $$
+  with raw_pairs as (
+    select lob, sub_lob from sales_transactions
+    union select lob, sub_lob from purchase_transactions
+    union select lob, sub_lob from inventory_snapshots
+  ),
+  canon as (
+    select coalesce(a.canonical_lob, coalesce(nullif(trim(r.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(r.sub_lob),''),'Unknown')) as sub_lob
+    from raw_pairs r
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(r.lob,'')))
+     and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(r.sub_lob,'')))
+  )
   select jsonb_build_object(
-    'lobs', (
-      select coalesce(jsonb_agg(distinct lob order by lob), '[]'::jsonb) from (
-        select nullif(trim(lob), '') as lob from sales_transactions
-        union select nullif(trim(lob), '') from purchase_transactions
-        union select nullif(trim(lob), '') from inventory_snapshots
-      ) x where lob is not null
-    ),
-    'subLobs', (
-      select coalesce(jsonb_agg(distinct sub_lob order by sub_lob), '[]'::jsonb) from (
-        select nullif(trim(sub_lob), '') as sub_lob from sales_transactions
-        union select nullif(trim(sub_lob), '') from purchase_transactions
-        union select nullif(trim(sub_lob), '') from inventory_snapshots
-      ) x where sub_lob is not null
-    )
+    'lobs', (select coalesce(jsonb_agg(distinct lob order by lob), '[]'::jsonb) from canon),
+    'subLobs', (select coalesce(jsonb_agg(distinct sub_lob order by sub_lob), '[]'::jsonb) from canon)
   );
 $$;
 
@@ -568,11 +626,18 @@ begin
 
   v_unit := case when p_group_by = 'month' then 'month' else 'week' end;
 
-  with filtered as (
-    select sale_date, qty, revenue, lob
-    from sales_transactions
-    where sale_date is not null
-      and (array_length(p_lobs, 1) is null or lob = any(p_lobs))
+  with filtered_raw as (
+    select t.sale_date, t.qty, t.revenue,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')) as lob
+    from sales_transactions t
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,'')))
+     and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.sale_date is not null
+  ),
+  filtered as (
+    select * from filtered_raw
+    where (array_length(p_lobs, 1) is null or lob = any(p_lobs))
   ),
   periods as (
     select date_trunc(v_unit, gs)::date as period_start
@@ -591,7 +656,7 @@ begin
     group by p.period_start
   ),
   by_lob as (
-    select coalesce(nullif(trim(lob), ''), 'Other') as lob, sum(qty) as qty, sum(revenue) as revenue
+    select lob, sum(qty) as qty, sum(revenue) as revenue
     from filtered
     where sale_date >= (select min(period_start) from periods)
     group by 1
@@ -658,30 +723,51 @@ begin
   select id into v_latest_ship_batch from upload_batches
   where upload_type = 'shipment_plan' order by uploaded_at desc limit 1;
 
+  -- Every lob/sub_lob below is run through psi_category_aliases first (left
+  -- join, case-insensitive) so the same real product doesn't fragment into
+  -- separate rows just because two files spell it differently.
   create temp table _psi_sales on commit drop as
-  select coalesce(nullif(trim(lob),''),'Unknown') as lob, coalesce(nullif(trim(sub_lob),''),'Unknown') as sub_lob,
-         qty, revenue
-  from sales_transactions
-  where sale_date >= v_period_start
-    and (array_length(p_lobs,1) is null or lob = any(p_lobs))
+  select * from (
+    select coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')) as sub_lob,
+           t.qty, t.revenue
+    from sales_transactions t
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,'')))
+     and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.sale_date >= v_period_start
+  ) x
+  where (array_length(p_lobs,1) is null or lob = any(p_lobs))
     and (array_length(p_sub_lobs,1) is null or sub_lob = any(p_sub_lobs));
 
   create temp table _psi_purchases on commit drop as
-  select coalesce(nullif(trim(lob),''),'Unknown') as lob, coalesce(nullif(trim(sub_lob),''),'Unknown') as sub_lob,
-         qty, amount
-  from purchase_transactions
-  where purchase_date >= v_period_start
-    and (array_length(p_lobs,1) is null or lob = any(p_lobs))
+  select * from (
+    select coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')) as sub_lob,
+           t.qty, t.amount
+    from purchase_transactions t
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,'')))
+     and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.purchase_date >= v_period_start
+  ) x
+  where (array_length(p_lobs,1) is null or lob = any(p_lobs))
     and (array_length(p_sub_lobs,1) is null or sub_lob = any(p_sub_lobs));
 
   create temp table _psi_inventory on commit drop as
-  select coalesce(nullif(trim(s.lob),''),'Unknown') as lob, coalesce(nullif(trim(s.sub_lob),''),'Unknown') as sub_lob,
-         coalesce(g.group_label, 'Other') as bucket, s.qty, s.value
-  from inventory_snapshots s
-  left join psi_location_groups g on g.location = s.location
-  where s.upload_batch_id = v_latest_inv_batch
-    and (array_length(p_lobs,1) is null or s.lob = any(p_lobs))
-    and (array_length(p_sub_lobs,1) is null or s.sub_lob = any(p_sub_lobs));
+  select * from (
+    select coalesce(a.canonical_lob, coalesce(nullif(trim(s.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(s.sub_lob),''),'Unknown')) as sub_lob,
+           coalesce(g.group_label, 'Other') as bucket, s.qty, s.value
+    from inventory_snapshots s
+    left join psi_location_groups g on g.location = s.location
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(s.lob,'')))
+     and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(s.sub_lob,'')))
+    where s.upload_batch_id = v_latest_inv_batch
+  ) x
+  where (array_length(p_lobs,1) is null or lob = any(p_lobs))
+    and (array_length(p_sub_lobs,1) is null or sub_lob = any(p_sub_lobs));
 
   -- Part No -> canonical (LOB, Sub LOB), built from Sales/Purchase/Inventory
   -- history (whichever source most recently saw that Part No). Shipment Plan
@@ -692,14 +778,29 @@ begin
   create temp table _psi_part_map on commit drop as
   select distinct on (part_no) part_no, lob, sub_lob
   from (
-    select part_no, coalesce(nullif(trim(lob),''),'Unknown') as lob, coalesce(nullif(trim(sub_lob),''),'Unknown') as sub_lob, created_at
-    from sales_transactions where part_no is not null
+    select t.part_no,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')) as sub_lob,
+           t.created_at
+    from sales_transactions t
+    left join psi_category_aliases a on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.part_no is not null
     union all
-    select part_no, coalesce(nullif(trim(lob),''),'Unknown'), coalesce(nullif(trim(sub_lob),''),'Unknown'), created_at
-    from purchase_transactions where part_no is not null
+    select t.part_no,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')),
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')),
+           t.created_at
+    from purchase_transactions t
+    left join psi_category_aliases a on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.part_no is not null
     union all
-    select part_no, coalesce(nullif(trim(lob),''),'Unknown'), coalesce(nullif(trim(sub_lob),''),'Unknown'), created_at
-    from inventory_snapshots where part_no is not null
+    select t.part_no,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')),
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')),
+           t.created_at
+    from inventory_snapshots t
+    left join psi_category_aliases a on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.part_no is not null
   ) x
   order by part_no, created_at desc;
 
@@ -804,6 +905,131 @@ begin
   left join sell_thru st on st.lob = g.lob and st.sub_lob = g.sub_lob
   left join inv on inv.lob = g.lob and inv.sub_lob = g.sub_lob
   left join ship_totals sh on sh.lob = g.lob and sh.sub_lob = g.sub_lob;
+
+  return v_result;
+end;
+$$;
+
+drop function if exists get_psi_pivot_data(text) cascade;
+
+-- ============================================================
+-- get_psi_pivot_data(p_period) — flat, pre-aggregated feed for the PSI
+-- Pivot page (public/js/psiPivot.js), built for pivottable.js in the
+-- browser. One row per (Source, LOB, Sub LOB, Part No, Week) instead of
+-- one row per raw transaction line — a raw feed would be 75,000+ rows,
+-- too heavy for a browser pivot; this collapses it to a few thousand while
+-- keeping every dimension you'd actually want to pivot by.
+-- p_period: 'week' | 'month' | 'quarter' | 'all' (same meaning as
+-- get_psi_report_v2 — only affects Sell-In/Sell-Through date filtering;
+-- Inventory and Shipment Plan always reflect the latest upload, same as
+-- the PSI Report).
+-- ============================================================
+create or replace function get_psi_pivot_data(p_period text default 'all')
+returns jsonb
+language plpgsql
+stable
+security definer
+as $$
+declare
+  v_result jsonb;
+  v_period_start date;
+  v_latest_inv_batch bigint;
+  v_latest_ship_batch bigint;
+begin
+  if auth.role() <> 'authenticated' then
+    raise exception 'Not authorized';
+  end if;
+
+  v_period_start := case p_period
+    when 'week' then current_date - interval '7 days'
+    when 'month' then current_date - interval '30 days'
+    when 'all' then date '2000-01-01'
+    else current_date - interval '91 days'
+  end;
+
+  select id into v_latest_inv_batch from upload_batches
+  where upload_type = 'inventory_snapshot' order by uploaded_at desc limit 1;
+
+  select id into v_latest_ship_batch from upload_batches
+  where upload_type = 'shipment_plan' order by uploaded_at desc limit 1;
+
+  with sell_through as (
+    select 'Sell-Through' as source,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')) as sub_lob,
+           coalesce(t.part_no, 'Unknown') as part_no,
+           null::text as location,
+           date_trunc('week', t.sale_date)::date as period_start,
+           sum(t.qty) as qty, sum(t.revenue) as value
+    from sales_transactions t
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.sale_date >= v_period_start
+    group by 1,2,3,4,5,6
+  ),
+  sell_in as (
+    select 'Sell-In' as source,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(t.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(t.sub_lob),''),'Unknown')) as sub_lob,
+           coalesce(t.part_no, 'Unknown') as part_no,
+           null::text as location,
+           date_trunc('week', t.purchase_date)::date as period_start,
+           sum(t.qty) as qty, sum(t.amount) as value
+    from purchase_transactions t
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(t.lob,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(t.sub_lob,'')))
+    where t.purchase_date >= v_period_start
+    group by 1,2,3,4,5,6
+  ),
+  inventory as (
+    select 'Inventory' as source,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(s.lob),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(s.sub_lob),''),'Unknown')) as sub_lob,
+           coalesce(s.part_no, 'Unknown') as part_no,
+           coalesce(g.group_label, 'Other') as location,
+           s.snapshot_date as period_start,
+           sum(s.qty) as qty, sum(s.value) as value
+    from inventory_snapshots s
+    left join psi_location_groups g on g.location = s.location
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(s.lob,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(s.sub_lob,'')))
+    where s.upload_batch_id = v_latest_inv_batch
+    group by 1,2,3,4,5,6
+  ),
+  shipment as (
+    select 'Shipment Plan' as source,
+           coalesce(a.canonical_lob, coalesce(nullif(trim(i.product_category),''),'Unknown')) as lob,
+           coalesce(a.canonical_sub_lob, coalesce(nullif(trim(i.model),''),'Unknown')) as sub_lob,
+           coalesce(i.part_no, 'Unknown') as part_no,
+           null::text as location,
+           w.week_ending as period_start,
+           sum(w.planned_qty) as qty, null::numeric as value
+    from shipment_plan_items i
+    join shipment_plan_weeks w on w.shipment_plan_item_id = i.id
+    left join psi_category_aliases a
+      on lower(trim(a.raw_lob)) = lower(trim(coalesce(i.product_category,''))) and lower(trim(a.raw_sub_lob)) = lower(trim(coalesce(i.model,'')))
+    where i.upload_batch_id = v_latest_ship_batch
+    group by 1,2,3,4,5,6
+  ),
+  all_rows as (
+    select * from sell_through
+    union all select * from sell_in
+    union all select * from inventory
+    union all select * from shipment
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'source', source,
+    'lob', lob,
+    'subLob', sub_lob,
+    'partNo', part_no,
+    'location', location,
+    'period', to_char(period_start, 'DD Mon YYYY'),
+    'periodStart', period_start,
+    'qty', coalesce(qty, 0),
+    'value', round(coalesce(value, 0)::numeric, 2)
+  )), '[]'::jsonb)
+  into v_result
+  from all_rows;
 
   return v_result;
 end;

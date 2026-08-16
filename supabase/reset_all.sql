@@ -15,6 +15,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 drop table if exists shipment_plan_weeks cascade;
 drop table if exists shipment_plan_items cascade;
 drop table if exists psi_location_groups cascade;
+drop table if exists psi_category_aliases cascade;
 drop table if exists inventory_snapshots cascade;
 drop table if exists purchase_transactions cascade;
 drop table if exists sales_transactions cascade;
@@ -30,7 +31,10 @@ drop table if exists profiles cascade;
 drop function if exists get_psi_report(bigint[], bigint[], text[]) cascade;
 drop function if exists get_psi_report_v2(text[], text[], text) cascade;
 drop function if exists get_sales_trend(text, int, text[]) cascade;
+drop function if exists get_imei_sales_trend(text, int) cascade;
 drop function if exists get_psi_filter_options() cascade;
+drop function if exists get_psi_pivot_data(text) cascade;
+drop function if exists psi_canonicalize(text, text) cascade;
 drop function if exists finalize_shipment_plan_batch(bigint, int) cascade;
 drop function if exists process_shipment_plan_chunk(bigint, jsonb) cascade;
 drop function if exists finalize_sales_ledger_batch(bigint, int) cascade;
@@ -61,4 +65,4 @@ select table_name from information_schema.tables
 where table_schema = 'public'
   and table_name in ('profiles','rtm_categories','customers','upload_batches','apple_calendar','imei_records',
     'activity_log','user_rtm_access','shipment_plan_items','shipment_plan_weeks','sales_transactions',
-    'purchase_transactions','inventory_snapshots','psi_location_groups');
+    'purchase_transactions','inventory_snapshots','psi_location_groups','psi_category_aliases');
