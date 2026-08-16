@@ -38,6 +38,28 @@ The UI has also been redesigned — a light, blue "premium" console theme
   text between your Sales/Purchase/Inventory files and your Shipment Plan file
   — fixes cases where a spelling difference used to leave Shipment Plan qty
   out of the report (surfaced before as "unmatchedShipmentQty").
+- **LOB / Sub LOB spelling variants are now merged automatically** — "Cable"
+  vs "Cables", "Adapter" vs "20w Adapter", "Airpods" vs "AirPods" (and its
+  "AirPods 4 (ANC)" / "AirPods (4th gen)" / "AirPods 4 with ANC" variants) no
+  longer split into separate PSI Report rows. This runs off a new editable
+  lookup table, `psi_category_aliases` — add more raw→canonical pairs there
+  directly in Supabase's Table Editor as new spelling variants show up, no
+  code change needed.
+- **Dashboard Sales Trend now sources from your main IMEI Sales /
+  Combined Report uploads** (units only) instead of PSI data. The old
+  PSI-sourced trend (with the Units/Revenue toggle) has moved to the new
+  **PSI Dashboard** page under PSI Files.
+- **New "PSI Dashboard" page** (PSI Files → PSI Dashboard) — chart view of
+  Sell-In vs Sell-Through, Inventory, Shipment Plan, and Backlog by LOB,
+  plus the relocated PSI Sales Trend.
+- **New "PSI Pivot" page** (PSI Files → PSI Pivot) — a live, drag-and-drop
+  Excel-style pivot table (via pivottable.js) over every PSI record
+  (Sell-In / Sell-Through / Inventory / Shipment Plan), so you can build
+  your own breakdowns without waiting on a new report.
+- **Invoice Search now shows one table with an Export to Excel button**
+  instead of a card per unit, and Sales File uploads now recognize more
+  PFI/Invoice header spellings ("PFI", "PFI No", "Invoice No", etc.), not
+  just the Combined Report format.
 
 Deploying this build over an existing project: re-run `schema_part2_live_features.sql`
 and `migration_psi.sql` (in that order) in the Supabase SQL Editor — both are
