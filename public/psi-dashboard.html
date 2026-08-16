@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PSI Dashboard — Vendix</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><span class="brand-mark">V</span><h1>Vendix</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <p class="page-eyebrow">PSI Files</p>
+      <h2>PSI Dashboard</h2>
+      <p class="page-subtitle">
+        Chart view of your PSI data — sell-in, sell-through, inventory, and shipment plan by LOB,
+        plus the SKU-level Sales Trend (moved here from the main Dashboard).
+      </p>
+
+      <div class="filter-bar" id="psi-dash-filters">
+        <div class="toggle-group" id="psi-dash-period-toggle">
+          <button class="toggle-btn" data-period="week">This Week</button>
+          <button class="toggle-btn" data-period="month">This Month</button>
+          <button class="toggle-btn active" data-period="quarter">This Quarter</button>
+          <button class="toggle-btn" data-period="all">All Time</button>
+        </div>
+      </div>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="psi-dash-content"><div class="loading">Loading PSI dashboard...</div></div>
+
+      <div class="dash-header" style="margin-top:32px;">
+        <h2><span class="source-pill sell-through">PSI Data</span> Sales Trend</h2>
+        <div class="toggle-group" id="trend-metric-toggle">
+          <button class="toggle-btn active" data-metric="qty">Units</button>
+          <button class="toggle-btn" data-metric="revenue">Revenue</button>
+        </div>
+      </div>
+      <p class="page-subtitle">From your Sales Data uploads (SKU-level ledger).</p>
+      <div id="psi-trend-content"><div class="loading">Loading sales trend...</div></div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/psiDashboard.js"></script>
+</body>
+</html>

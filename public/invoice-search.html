@@ -6,6 +6,7 @@
   <title>Invoice Search — Vendix</title>
   <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -24,10 +25,12 @@
       <form class="search-bar" id="search-form">
         <input id="invoice-input" placeholder="Enter PFI / Invoice number" required />
         <button type="submit" class="btn-primary">Search</button>
+        <button type="button" class="btn-secondary" id="export-invoice-btn" style="display:none;">Export to Excel</button>
       </form>
 
       <div id="error-box" class="alert-error" style="display:none;"></div>
       <div id="results"></div>
+      <div class="table-wrap" id="results-table-wrap"></div>
     </main>
   </div>
 
