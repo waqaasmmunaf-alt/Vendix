@@ -297,18 +297,17 @@
   }
 
   // ---------------------------------------------------------------
-  // PSI Sales Trend — from sales_transactions (SKU-level ledger).
-  // Kept fully independent of the IMEI-based dashboard above: its own
-  // data source, own container, own toggle.
+  // Sales Trend — from imei_records (main IMEI Sales / Combined Report
+  // data). Units-only: imei_records has no revenue/price column, so
+  // there's no Units/Revenue toggle here (unlike the PSI trend, which
+  // now lives on the PSI Dashboard page).
   // ---------------------------------------------------------------
-  const trendContainer = document.getElementById('psi-trend-content');
-  let trendMetric = 'qty';
+  const trendContainer = document.getElementById('imei-trend-content');
 
   async function loadSalesTrend() {
-    const { data, error } = await supabaseClient.rpc('get_sales_trend', {
+    const { data, error } = await supabaseClient.rpc('get_imei_sales_trend', {
       p_group_by: 'week',
-      p_periods: 16,
-      p_lobs: []
+      p_periods: 16
     });
 
     if (error) {
@@ -316,32 +315,32 @@
       return;
     }
 
-    if (!data.points.length || data.points.every((p) => p.qty === 0 && p.revenue === 0)) {
-      trendContainer.innerHTML = '<div class="panel pro-panel"><p class="empty-state">No Sales Data uploaded yet — see PSI Files → Upload Sales Data.</p></div>';
+    if (!data.points.length || data.points.every((p) => p.qty === 0)) {
+      trendContainer.innerHTML = '<div class="panel pro-panel"><p class="empty-state">No shipment-dated units yet — see Upload → Sales File / Combined Report.</p></div>';
       return;
     }
 
     trendContainer.innerHTML = `
       <div class="panel-grid two-col">
         <div class="panel pro-panel">
-          <h3>Weekly ${trendMetric === 'qty' ? 'Units Sold' : 'Revenue'}</h3>
-          <canvas id="chart-psi-trend" height="200"></canvas>
+          <h3>Weekly Units Sold</h3>
+          <canvas id="chart-imei-trend" height="200"></canvas>
         </div>
         <div class="panel pro-panel">
           <h3>By LOB (this window)</h3>
-          <canvas id="chart-psi-lob" height="200"></canvas>
+          <canvas id="chart-imei-lob" height="200"></canvas>
         </div>
       </div>
     `;
 
-    destroyChart('psiTrend');
-    charts.psiTrend = new Chart(document.getElementById('chart-psi-trend'), {
+    destroyChart('imeiTrend');
+    charts.imeiTrend = new Chart(document.getElementById('chart-imei-trend'), {
       type: 'bar',
       data: {
         labels: data.points.map((p) => p.label),
         datasets: [{
-          label: trendMetric === 'qty' ? 'Units Sold' : 'Revenue',
-          data: data.points.map((p) => (trendMetric === 'qty' ? p.qty : p.revenue)),
+          label: 'Units Sold',
+          data: data.points.map((p) => p.qty),
           backgroundColor: '#2a78d6',
           borderRadius: 4
         }]
@@ -349,14 +348,14 @@
       options: { responsive: true, plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, color: '#184f95' } } }
     });
 
-    destroyChart('psiLob');
-    charts.psiLob = new Chart(document.getElementById('chart-psi-lob'), {
+    destroyChart('imeiLob');
+    charts.imeiLob = new Chart(document.getElementById('chart-imei-lob'), {
       type: 'bar',
       data: {
         labels: data.byLob.map((l) => l.lob),
         datasets: [{
-          label: trendMetric === 'qty' ? 'Units Sold' : 'Revenue',
-          data: data.byLob.map((l) => (trendMetric === 'qty' ? l.qty : l.revenue)),
+          label: 'Units Sold',
+          data: data.byLob.map((l) => l.qty),
           backgroundColor: '#1baf7a',
           borderRadius: 4
         }]
@@ -364,15 +363,6 @@
       options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, anchor: 'end', align: 'right' } } }
     });
   }
-
-  document.getElementById('trend-metric-toggle').addEventListener('click', (e) => {
-    const btn = e.target.closest('.toggle-btn');
-    if (!btn) return;
-    document.querySelectorAll('#trend-metric-toggle .toggle-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    trendMetric = btn.dataset.metric;
-    loadSalesTrend();
-  });
 
   document.getElementById('date-mode-toggle').addEventListener('click', (e) => {
     const btn = e.target.closest('.toggle-btn');

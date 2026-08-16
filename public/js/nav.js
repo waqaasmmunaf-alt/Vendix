@@ -20,7 +20,9 @@ const NAV_ICONS = {
   cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7H6"/>',
   archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
   receipt: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>',
-  pin: '<path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.5"/>'
+  pin: '<path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.5"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  table: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>'
 };
 
 function navIcon(key) {
@@ -88,7 +90,9 @@ function renderLayout(activePage, profile) {
       { href: 'upload-purchase-ledger.html', label: 'Purchase Data', key: 'upload-purchase-ledger', icon: 'cart' },
       { href: 'upload-inventory-snapshot.html', label: 'Inventory', key: 'upload-inventory-snapshot', icon: 'archive' },
       { href: 'upload-shipment-plan.html', label: 'Shipment Plan', key: 'upload-shipment-plan', icon: 'truck' },
-      { href: 'psi-report.html', label: 'PSI Report', key: 'psi-report', icon: 'chart' }
+      { href: 'psi-report.html', label: 'PSI Report', key: 'psi-report', icon: 'chart' },
+      { href: 'psi-dashboard.html', label: 'PSI Dashboard', key: 'psi-dashboard', icon: 'grid' },
+      { href: 'psi-pivot.html', label: 'PSI Pivot', key: 'psi-pivot', icon: 'table' }
     ]
   };
 
