@@ -327,8 +327,8 @@
           <canvas id="chart-imei-trend" height="200"></canvas>
         </div>
         <div class="panel pro-panel">
-          <h3>By LOB (this window)</h3>
-          <canvas id="chart-imei-lob" height="200"></canvas>
+          <h3>By Model (this window)</h3>
+          <canvas id="chart-imei-model" height="200"></canvas>
         </div>
       </div>
     `;
@@ -348,14 +348,14 @@
       options: { responsive: true, plugins: { legend: { display: false }, datalabels: { ...dataLabelBase, color: '#184f95' } } }
     });
 
-    destroyChart('imeiLob');
-    charts.imeiLob = new Chart(document.getElementById('chart-imei-lob'), {
+    destroyChart('imeiModel');
+    charts.imeiModel = new Chart(document.getElementById('chart-imei-model'), {
       type: 'bar',
       data: {
-        labels: data.byLob.map((l) => l.lob),
+        labels: data.byModel.map((m) => m.model),
         datasets: [{
           label: 'Units Sold',
-          data: data.byLob.map((l) => l.qty),
+          data: data.byModel.map((m) => m.qty),
           backgroundColor: '#1baf7a',
           borderRadius: 4
         }]
