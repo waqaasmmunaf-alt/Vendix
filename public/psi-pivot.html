@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pivottable@2.23.0/dist/pivot.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -26,8 +27,8 @@
       <p class="page-eyebrow">PSI Files</p>
       <h2>PSI Pivot</h2>
       <p class="page-subtitle">
-        Drag fields into Rows / Columns / Values to build your own view — Sell-In, Sell-Through,
-        Inventory, and Shipment Plan rows, all in one flat table you can slice any way you like.
+        Sell-In, Sell-Through, Inventory, and Shipment Plan, all in one flat table. Use a preset for the
+        common breakdowns, or switch to Custom to drag fields into Rows / Columns / Values yourself.
       </p>
 
       <div class="filter-bar" id="psi-pivot-filters">
@@ -40,8 +41,35 @@
       </div>
 
       <div id="error-box" class="alert-error" style="display:none;"></div>
-      <div id="psi-pivot-content"><div class="loading">Loading pivot data...</div></div>
-      <div id="pivot-output" class="panel pro-panel" style="margin-top:16px;"></div>
+      <div id="psi-pivot-stats"></div>
+
+      <div class="toggle-group" id="psi-pivot-tabs" style="margin-top:20px;">
+        <button class="toggle-btn active" data-tab="presets">Presets</button>
+        <button class="toggle-btn" data-tab="custom">Custom — drag &amp; drop</button>
+      </div>
+
+      <div id="tab-presets" style="margin-top:16px;">
+        <div class="filter-bar" id="psi-pivot-preset-bar">
+          <div class="toggle-group" id="psi-pivot-preset-toggle">
+            <button class="toggle-btn active" data-preset="lob">By LOB</button>
+            <button class="toggle-btn" data-preset="source">By Source</button>
+            <button class="toggle-btn" data-preset="location">By Location</button>
+            <button class="toggle-btn" data-preset="partno">By Part No</button>
+          </div>
+          <div class="toggle-group" id="psi-pivot-metric-toggle">
+            <button class="toggle-btn active" data-metric="qty">Qty</button>
+            <button class="toggle-btn" data-metric="value">Value</button>
+          </div>
+          <button class="btn-secondary" id="export-pivot-btn">Export to Excel</button>
+        </div>
+        <div id="psi-pivot-preset-content"><div class="loading">Loading pivot data...</div></div>
+      </div>
+
+      <div id="tab-custom" style="display:none; margin-top:16px;">
+        <div class="panel pro-panel">
+          <div id="pivot-output"><div class="loading">Loading pivot data...</div></div>
+        </div>
+      </div>
     </main>
   </div>
 
