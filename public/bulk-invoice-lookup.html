@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bulk Invoice Lookup — Channel Pulse</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h1>Channel Pulse</h1></div>
+      <nav id="sidebar-nav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+        <button id="logout-btn" class="btn-secondary">Log out</button>
+      </div>
+    </aside>
+    <main class="main-content">
+      <h2>Bulk Invoice Lookup</h2>
+      <p class="page-subtitle">Paste a list of PFI / invoice numbers (one per line, or comma-separated) to check total qty, customer, RTM, and activation status for each in one go.</p>
+
+      <form class="upload-card" id="lookup-form">
+        <textarea id="invoice-textarea" rows="8" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:7px; font-family:monospace; font-size:13px;" placeholder="PIMPA054005
+NSOLP0042897
+NSOLP0042607"></textarea>
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn-primary" id="lookup-btn">Lookup</button>
+          <button type="button" class="btn-secondary" id="export-btn" style="display:none;">Export Results to Excel</button>
+        </div>
+      </form>
+
+      <div id="error-box" class="alert-error" style="display:none;"></div>
+      <div id="summary-box" class="alert-success" style="display:none;"></div>
+      <div id="results-content"></div>
+    </main>
+  </div>
+
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/bulkInvoiceLookup.js"></script>
+</body>
+</html>
