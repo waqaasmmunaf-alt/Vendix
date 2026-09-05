@@ -14,15 +14,10 @@ const NAV_ICONS = {
   list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
   users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  truck: '<path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8Z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
-  chart: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>',
-  dollar: '<circle cx="12" cy="12" r="9"/><path d="M12 6v12"/><path d="M15.5 9.5c0-1.4-1.6-2.5-3.5-2.5s-3.5 1-3.5 2.5S10 12 12 12s3.5 1 3.5 2.5-1.6 2.5-3.5 2.5-3.5-1.1-3.5-2.5"/>',
-  cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 7H6"/>',
-  archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
-  receipt: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>',
   pin: '<path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Z"/><circle cx="12" cy="9" r="2.5"/>',
-  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-  table: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>'
+  chart: '<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>',
+  table: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
+  receipt: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/>'
 };
 
 function navIcon(key) {
@@ -39,13 +34,13 @@ function linkHtml(item, activePage) {
 // Renders a collapsible nav group: a clickable header (icon + label + chevron)
 // with its links nested underneath. Open state is remembered per-browser via
 // localStorage, but a group is always forced open if it contains the active page.
-function groupHtml(group, activePage, extraClass) {
+function groupHtml(group, activePage) {
   const containsActive = group.items.some((i) => i.key === activePage);
   let stored = null;
-  try { stored = localStorage.getItem('vendix_nav_' + group.key + '_open'); } catch (e) { /* ignore */ }
+  try { stored = localStorage.getItem('cp_nav_' + group.key + '_open'); } catch (e) { /* ignore */ }
   const isOpen = containsActive || stored === '1' || (stored === null && group.defaultOpen !== false);
 
-  return `<div class="nav-group ${extraClass || ''} ${isOpen ? 'open' : ''}" data-group-key="${group.key}">
+  return `<div class="nav-group ${isOpen ? 'open' : ''}" data-group-key="${group.key}">
     <button type="button" class="nav-group-toggle">
       ${navIcon(group.icon)}<span>${group.label}</span>${NAV_CHEVRON}
     </button>
@@ -58,45 +53,34 @@ function groupHtml(group, activePage, extraClass) {
 function renderLayout(activePage, profile) {
   const isAdmin = profile.role === 'admin';
 
-  // IMEI-based uploads, grouped under one collapsible "Upload" category.
-  // Labels are short — the group header already says "Upload".
   const uploadGroup = {
     key: 'upload', label: 'Upload', icon: 'upload', defaultOpen: false,
     items: [
       { href: 'upload-ops.html', label: 'Sales File', key: 'upload-ops', icon: 'upload' },
       { href: 'upload-activation.html', label: 'Activation Check', key: 'upload-activation', icon: 'check' },
       { href: 'upload-combined.html', label: 'Combined Report', key: 'upload-combined', icon: 'layers' },
-      { href: 'upload-pk-import.html', label: 'PK Import', key: 'upload-pk-import', icon: 'pin' }
+      { href: 'upload-pk-order.html', label: 'PK Orders', key: 'upload-pk-order', icon: 'pin' }
     ]
   };
 
-  // Search — IMEI trace + Invoice (PFI #) lookup, same imei_records data,
-  // different lookup key.
   const searchGroup = {
     key: 'search-group', label: 'Search', icon: 'search', defaultOpen: false,
     items: [
       { href: 'search.html', label: 'IMEI', key: 'search', icon: 'search' },
-      { href: 'invoice-search.html', label: 'Invoice', key: 'invoice-search', icon: 'receipt' }
+      { href: 'invoice-search.html', label: 'Invoice', key: 'invoice-search', icon: 'receipt' },
+      { href: 'bulk-lookup.html', label: 'Bulk Lookup', key: 'bulk-lookup', icon: 'list' },
+      { href: 'bulk-invoice-lookup.html', label: 'Bulk Invoice Lookup', key: 'bulk-invoice-lookup', icon: 'receipt' }
     ]
   };
 
-  // PSI Files — its own data pipeline (Sales/Purchase ledgers, Inventory
-  // snapshot, Shipment plan — all SKU-level, independent of the IMEI-based
-  // tracking above), grouped under a collapsible, tinted category.
-  const psiGroup = {
-    key: 'psi', label: 'PSI Files', icon: 'chart', defaultOpen: false,
+  const reportsGroup = {
+    key: 'reports', label: 'Reports', icon: 'chart', defaultOpen: false,
     items: [
-      { href: 'upload-sales-ledger.html', label: 'Sales Data', key: 'upload-sales-ledger', icon: 'dollar' },
-      { href: 'upload-purchase-ledger.html', label: 'Purchase Data', key: 'upload-purchase-ledger', icon: 'cart' },
-      { href: 'upload-inventory-snapshot.html', label: 'Inventory', key: 'upload-inventory-snapshot', icon: 'archive' },
-      { href: 'upload-shipment-plan.html', label: 'Shipment Plan', key: 'upload-shipment-plan', icon: 'truck' },
-      { href: 'psi-report.html', label: 'PSI Report', key: 'psi-report', icon: 'chart' },
-      { href: 'psi-dashboard.html', label: 'PSI Dashboard', key: 'psi-dashboard', icon: 'grid' },
-      { href: 'psi-pivot.html', label: 'PSI Pivot', key: 'psi-pivot', icon: 'table' }
+      { href: 'summary.html', label: 'Summary', key: 'summary', icon: 'chart' },
+      { href: 'pivot-summary.html', label: 'Pivot Summary', key: 'pivot-summary', icon: 'table' }
     ]
   };
 
-  // Settings — admin-only housekeeping pages, grouped under one category.
   const settingsGroup = {
     key: 'admin-settings', label: 'Settings', icon: 'sliders', defaultOpen: false,
     items: [
@@ -120,8 +104,10 @@ function renderLayout(activePage, profile) {
     groupHtml(uploadGroup, activePage) +
     midItems.map((i) => linkHtml(i, activePage)).join('') +
     groupHtml(searchGroup, activePage) +
-    groupHtml(psiGroup, activePage, 'nav-group-psi') +
-    (isAdmin ? groupHtml(settingsGroup, activePage) : '');
+    groupHtml(reportsGroup, activePage) +
+    (isAdmin ? groupHtml(settingsGroup, activePage) : (
+      `<a href="settings.html" class="${activePage === 'settings' ? 'active' : ''}">${navIcon('sliders')}<span>Master Settings</span></a>`
+    ));
 
   document.getElementById('sidebar-nav').innerHTML = navHtml;
   document.getElementById('user-name').textContent = profile.name;
@@ -132,7 +118,7 @@ function renderLayout(activePage, profile) {
     btn.addEventListener('click', () => {
       const group = btn.closest('.nav-group');
       const isOpen = group.classList.toggle('open');
-      try { localStorage.setItem('vendix_nav_' + group.dataset.groupKey + '_open', isOpen ? '1' : '0'); } catch (e) { /* ignore */ }
+      try { localStorage.setItem('cp_nav_' + group.dataset.groupKey + '_open', isOpen ? '1' : '0'); } catch (e) { /* ignore */ }
     });
   });
 }
